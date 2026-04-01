@@ -15,10 +15,25 @@ a hotfix path.
 
 ## First-time Setup
 
+You can bootstrap a new project, or retrofit an existing one.
+
 ```bash
+# 1. Create your project and unzip
+mkdir /path/to/my-project && cd /path/to/my-project
 git init
-npm install -g @anthropic-ai/claude-code
-chmod +x .claude/hooks/gate-validator.js
+# The script is safe to run on an existing project — it uses
+# cp -n (no-overwrite) for .claude/, backs up any existing
+# CLAUDE.md to CLAUDE.md.bak, skips README.md if one exists, and
+# won't touch your src/ if it's already there.
+cd /path/to/dev-team && bash bootstrap.sh /path/to/my-project
+cd /path/to/my-project
+
+# 2. Customise for your stack (takes 5 minutes)
+# Open .claude/skills/code-conventions/SKILL.md — change language/framework specifics
+# Open .claude/skills/api-conventions/SKILL.md — adjust to match your API style
+# Open .claude/agents/dev-platform.md — add your actual deploy command under "On a Deploy Task"
+
+# 3. Start Claude and go!
 claude
 ```
 
