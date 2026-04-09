@@ -102,7 +102,7 @@ A worked example with full format documentation is included in `.claude/referenc
 
 ### The implement Skill
 
-Say "implement Batch 2 item 3" and Claude reads the roadmap, plans, codes, and verifies — in three stages with stop-and-report checkpoints.
+Say "implement Batch 2 item 3" and Claude reads the roadmap, plans, codes, verifies, and commits — in four stages with stop-and-report checkpoints.
 
 **Plan.** Claude reads the relevant audit findings, identifies files to change, and proposes an approach. It stops and presents the plan for your approval. No code is written until you confirm.
 
@@ -110,9 +110,11 @@ Say "implement Batch 2 item 3" and Claude reads the roadmap, plans, codes, and v
 
 **Verify.** Claude confirms all tests pass, marks the roadmap item with a `[DONE]` prefix, and suggests running `/review` before merge.
 
+**Commit.** Claude drafts a conventional commit message and asks for your approval. Each implemented item becomes one atomic commit — keeping history clean and reverts safe. If you start a new item with uncommitted changes from a previous cycle, Claude warns you first.
+
 Three input modes are supported: naming a specific roadmap item ("implement Batch 2 item 3"), providing an inline description ("implement: add rate limiting to /generate"), or asking for the next item ("implement next item") which picks the next pending item from the roadmap.
 
-Claude never commits or pushes without explicit human approval. Every step has a stop-and-report checkpoint. If tests fail, Claude stops and explains what happened. You review the diff, you decide to merge.
+Claude never commits or pushes without explicit human approval. Every step has a stop-and-report checkpoint. If tests fail, Claude stops and explains what happened. You review the diff, you decide to commit.
 
 ### /review — Pre-Merge Check
 

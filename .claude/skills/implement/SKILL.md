@@ -1,11 +1,11 @@
 ---
 name: implement
-description: "Plan, execute, and verify a single codebase improvement. Use this skill whenever the user says things like 'implement [item]', 'work on [roadmap item]', 'fix [finding from audit]', 'plan the change for [item]', 'execute the plan', or 'verify the changes'. Also triggers on 'next item from the roadmap' or 'pick up where we left off'. This skill is for small-to-medium changes that don't need the full /pipeline. It ensures changes are planned before coded, verified after coding, and never committed without human review."
+description: "Plan, execute, verify, and commit a single codebase improvement. Use this skill whenever the user says things like 'implement [item]', 'work on [roadmap item]', 'fix [finding from audit]', 'plan the change for [item]', 'execute the plan', or 'verify the changes'. Also triggers on 'next item from the roadmap' or 'pick up where we left off'. This skill is for small-to-medium changes that don't need the full /pipeline. It ensures changes are planned before coded, verified after coding, and committed atomically with human approval at every step."
 ---
 
 # Implement a Change
 
-A three-step workflow for implementing improvements: **plan**, **execute**, **verify**. Use this for focused changes (a few files, clear scope) where the full `/pipeline` would be overkill.
+A four-step workflow for implementing improvements: **plan**, **execute**, **verify**, **commit**. Use this for focused changes (a few files, clear scope) where the full `/pipeline` would be overkill.
 
 When to use this vs. `/pipeline`: if the change needs requirements refinement (PM), architectural decisions (Principal), or touches multiple areas (backend + frontend + infra), use `/pipeline` instead.
 
@@ -85,6 +85,36 @@ After the user approves the diff (or after adjustments), run full verification:
 7. List any follow-up items or tech debt this change creates
 
 Give a clear verdict: **ready to commit** or **issues to fix first** (with specifics).
+
+## Step 4: Commit
+
+Each implemented item should be **one atomic commit**. This keeps history clean and makes reverts safe.
+
+After Verify passes ("ready to commit"):
+
+1. **Draft a commit message** following this format:
+   ```
+   <type>(<scope>): <short summary>
+
+   <what changed and why — 1-3 lines>
+   ```
+   Where `type` is one of: `fix`, `feat`, `refactor`, `test`, `docs`, `perf`, `chore`.
+   Derive `scope` from the primary area changed (e.g., `auth`, `api`, `build`).
+
+2. **Present the message to the user** and ask: "Commit with this message? (yes / edit / skip)"
+   - **yes** → stage the relevant files and commit. Do not use `git add -A`; add specific files that were changed as part of this implementation.
+   - **edit** → the user provides an adjusted message, then commit.
+   - **skip** → do not commit. Warn: "Changes are uncommitted — remember to commit before starting the next item."
+
+3. **After committing**, print: the commit hash, the one-line summary, and the number of files changed.
+
+### Uncommitted change guard
+
+If the user asks to implement another item (or says "next item") and there are **uncommitted changes from a previous implement cycle**, stop and warn:
+
+> There are uncommitted changes from the previous implementation. Commit them first? (yes / skip)
+
+Do not start a new Plan step with a dirty working tree from a prior implement cycle. This prevents changes from piling up across multiple items.
 
 ## After Completion
 
