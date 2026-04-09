@@ -18,7 +18,11 @@ Steps:
    `---\n## New Run: {timestamp}\n---`
 4. Recreate empty directories: `pipeline/gates/`, `pipeline/adr/`,
    `pipeline/code-review/`
-5. Report what was archived and confirm the pipeline is ready
+5. Clean up orphaned git worktrees from Stage 4:
+   Run `git worktree list`. For any worktree whose path contains
+   `dev-team-`, run `git worktree remove <path> --force`.
+   Report what was cleaned up (or "no orphaned worktrees found").
+6. Report what was archived and confirm the pipeline is ready
 
 Archive label (if provided): $ARGUMENTS
 
