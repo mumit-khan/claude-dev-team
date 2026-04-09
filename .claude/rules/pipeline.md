@@ -132,3 +132,38 @@ Gate file: `pipeline/gates/stage-08.json`
 Gate key: `"status": "PASS"`
 
 Post-deploy: invoke `pm` agent to write stakeholder summary.
+
+---
+
+## Stage Duration Expectations
+
+Typical durations for each stage. These are guidelines, not hard limits —
+Claude Code does not enforce timeouts on agent execution. If a stage
+seems stalled, use `/status` to check progress and `/pipeline-context`
+for a full state dump.
+
+| Stage | Typical Duration | Notes |
+|-------|-----------------|-------|
+| 1 — Requirements | 2-5 min | Single agent (PM). Fast unless scope is ambiguous. |
+| 2 — Design | 5-15 min | Sequential: draft → annotation → review. Longest non-build stage. |
+| 3 — Clarification | <1 min | Pass-through if no open questions. |
+| 4 — Build | 5-20 min | Parallel (3 devs). Wall-clock = slowest dev. Complexity-dependent. |
+| 5 — Code Review | 5-15 min | 3 reviewers, each reading 2 PRs. Sequential fallback is slower. |
+| 6 — Test & CI | 3-10 min | Depends on test suite size and whether retries are needed. |
+| 7 — PM Sign-off | 1-3 min | Single agent review. |
+| 8 — Deploy | 3-10 min | Docker build + smoke tests. Network-dependent. |
+
+**Full pipeline**: 25-80 minutes typical, depending on feature complexity.
+
+**Stall indicators**:
+- Stage 4 taking >30 min: check if a dev agent hit an ambiguity and wrote
+  a `QUESTION:` to `pipeline/context.md` without the orchestrator noticing.
+- Stage 6 retry loops: check if the same test is failing repeatedly
+  (auto-escalates after 3 identical failures).
+- Any stage with no gate file written after 15 min: likely a context or
+  permission issue. Check the agent's output for errors.
+
+**Claude Code session limits**: Claude Code conversations have a context
+window limit. Long pipeline runs may trigger automatic compaction. The
+`/pipeline-context` command captures state before compaction, and
+`.claude/rules/compaction.md` tells Claude what to preserve.

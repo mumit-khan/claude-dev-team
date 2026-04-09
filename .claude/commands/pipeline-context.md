@@ -5,7 +5,7 @@ description: >
   Prints the status of every gate file and any open questions.
 ---
 
-# /pipeline-status
+# /pipeline-context
 
 Read all files in `pipeline/gates/` and `pipeline/context.md`.
 

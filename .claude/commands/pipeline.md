@@ -25,6 +25,9 @@ Before invoking any agent:
 4. Read `.claude/rules/escalation.md`
 5. Read `pipeline/context.md`
 6. Ensure `pipeline/gates/` exists — create if missing
+7. Check for orphaned worktrees: run `git worktree list`. If any
+   worktree path contains `dev-team-`, remove it with
+   `git worktree remove <path> --force` and note the cleanup in output
 
 ## Execution
 
