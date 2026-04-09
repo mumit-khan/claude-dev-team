@@ -12,10 +12,11 @@ Archive and reset the pipeline directory for a new feature run.
 
 Steps:
 1. Create `pipeline/archive/` if it doesn't exist
-2. Move all files from `pipeline/` (except `archive/` and `context.md`)
-   into `pipeline/archive/run-{timestamp}/`
-3. Preserve `pipeline/context.md` — append a separator:
-   `---\n## New Run: {timestamp}\n---`
+2. Move all files from `pipeline/` (except `archive/`)
+   into `pipeline/archive/run-{timestamp}/` (this includes `context.md`)
+3. Reset `pipeline/context.md` to its empty template (the header and
+   empty sections — no carried-over content). The old context is preserved
+   in the archive from step 2.
 4. Recreate empty directories: `pipeline/gates/`, `pipeline/adr/`,
    `pipeline/code-review/`
 5. Clean up orphaned git worktrees from Stage 4:

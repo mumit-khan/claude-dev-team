@@ -126,7 +126,7 @@ Participates in peer code review by reviewing the backend and frontend PRs.
 | `/pipeline-brief <feature>` | Draft brief only (Stage 1) |
 | `/design <feature>` | Requirements + design only (Stages 1–2) |
 | `/pipeline-review` | Re-run peer code review |
-| `/pipeline-status` | Show current gate states |
+| `/pipeline-context` | Show current gate states and open questions |
 | `/stage <name>` | Run one stage explicitly |
 | `/resume <stage-n>` | Resume from a specific stage |
 | `/hotfix <bug>` | Expedited fix (skips design) |

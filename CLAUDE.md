@@ -38,5 +38,5 @@ At each checkpoint, print a one-paragraph summary and wait for "proceed".
 - `/pipeline [feature]` — run the full pipeline
 - `/pipeline-brief [feature]` — draft brief only
 - `/pipeline-review` — run code review on current src/
-- `/pipeline-status` — show current gate statuses
+- `/pipeline-context` — show current gate statuses and open questions
 - `/hotfix [bug description]` — expedited fix pipeline

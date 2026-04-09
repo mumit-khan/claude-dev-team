@@ -157,7 +157,7 @@ your-project/
 │   │   ├── pipeline.md                # /pipeline — full feature build
 │   │   ├── pipeline-brief.md          # /pipeline-brief — draft brief only
 │   │   ├── pipeline-review.md         # /pipeline-review — Stage 5 re-run
-│   │   ├── pipeline-status.md         # /pipeline-status — compact dump
+│   │   ├── pipeline-context.md         # /pipeline-context — compact context dump
 │   │   ├── status.md                  # /status — pipeline dashboard
 │   │   ├── hotfix.md                  # /hotfix — urgent production fix
 │   │   ├── audit.md                   # /audit — full codebase audit
