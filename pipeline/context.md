@@ -37,6 +37,11 @@ validation), lint output capture to pipeline/lint-output.txt.
 workflow (.github/workflows/test.yml for Node 20+22), added CONTRIBUTING.md,
 added 16 integration tests for bootstrap.sh (test:integration script).
 
+2026-04-09 — Batch 4 (P3): Added stage duration expectations to pipeline
+rules, added 66-assertion frontmatter schema validation tests for agents
+and skills, refactored build-presentation.js from monolithic build() into
+13 per-slide functions (slide XML verified byte-identical before/after).
+
 ---
 
 ## Key Decisions (running log)

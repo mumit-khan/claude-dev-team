@@ -67,9 +67,9 @@ Larger improvements that require more thought and carry some risk.
 
 | # | Item | Effort | Depends On | Mini-Proposal |
 |---|---|---|---|---|
-| 13 | Refactor `build-presentation.js` | M | #1 | Split `build()` into per-slide functions. Extract layout helpers. Add JSDoc. Run the script before and after to diff output — slides must be identical. |
-| 14 | Schema validation for agent/skill YAML frontmatter | S | #1, #3 | Write a test that parses all `.claude/agents/*.md` and `.claude/skills/*/SKILL.md`, extracts YAML frontmatter, and validates required fields. Add to `npm test`. |
-| 15 | Document stage timeout expectations | S | None | Add duration guidance to `pipeline.md`. Research whether Claude Code has any timeout hooks that could surface warnings. |
+| 13 | [DONE] Refactor `build-presentation.js` | M | #1 | Split `build()` into per-slide functions. Extract layout helpers. Add JSDoc. Run the script before and after to diff output — slides must be identical. |
+| 14 | [DONE] Schema validation for agent/skill YAML frontmatter | S | #1, #3 | Write a test that parses all `.claude/agents/*.md` and `.claude/skills/*/SKILL.md`, extracts YAML frontmatter, and validates required fields. Add to `npm test`. |
+| 15 | [DONE] Document stage timeout expectations | S | None | Add duration guidance to `pipeline.md`. Research whether Claude Code has any timeout hooks that could surface warnings. |
 
 **Estimated effort**: 1-2 days total.
 
