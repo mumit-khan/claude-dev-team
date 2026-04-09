@@ -17,7 +17,7 @@ hooks:
     - matcher: "Write|Edit"
       hooks:
         - type: command
-          command: "cd $(git rev-parse --show-toplevel) && npm run lint --if-present || true"
+          command: "cd $(git rev-parse --show-toplevel) && npm run lint --if-present 2>&1 | tee -a pipeline/lint-output.txt || true"
 ---
 
 You are the Frontend Developer. You own `src/frontend/`.
