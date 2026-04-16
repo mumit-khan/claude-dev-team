@@ -1,88 +1,92 @@
-# Project Context
+# 00 — Project Context
 
-## Overview
+## What this project is
 
-**Claude Dev Team** is a framework/scaffold that installs into any project to provide a structured software development lifecycle powered by Claude Code. It is **not an application** — it contains no runtime source code (`src/` is not present in the repo itself). Instead, it provides Claude Code configuration: agents, commands, skills, rules, hooks, and documentation.
+`claude-dev-team` is a **framework / template**, not a runtime application. It packages a structured software-development workflow that runs *inside* Claude Code: a simulated PM, Principal Engineer, and three specialist developers, plus slash commands, skills, gates, and hooks that orchestrate them. Users install it into a target project via `bootstrap.sh` and then invoke commands like `/pipeline`, `/audit`, or the `implement` skill.
 
-The project bootstraps into target codebases via `bootstrap.sh`, installing `.claude/` directory structure, pipeline scaffolding, and orchestrator instructions.
+The repo itself contains no `src/` — that directory is created inside target projects by `bootstrap.sh`. What lives in this repo is the framework definition (markdown + a little Node.js).
 
-## Languages and Frameworks
+## Languages and frameworks
 
-| Layer | Technology |
+| Role | Language / Tool | Where |
+|---|---|---|
+| Agent / command / skill definitions | Markdown + YAML frontmatter | `.claude/agents/`, `.claude/commands/`, `.claude/skills/`, `.claude/rules/`, `.claude/references/` |
+| Gate validation hook | Node.js (CommonJS) | `.claude/hooks/gate-validator.js` |
+| Tests | Node.js `node:test` + `node:assert/strict` | `tests/` |
+| Presentation builder | Node.js (CommonJS) + `pptxgenjs` + React SSR + `sharp` | `docs/build-presentation.js` |
+| Bootstrap installer | Bash | `bootstrap.sh` |
+| CI | GitHub Actions | `.github/workflows/test.yml` |
+| Lint | ESLint 9 (flat config) | `eslint.config.js` |
+
+Node engine: CI matrix runs **Node 20 and 22**. `package.json` has `"private": true` and no `engines` field.
+
+## Build system and dependency manager
+
+- **npm** is the package manager (`package-lock.json` committed).
+- `package.json` is thin: no runtime deps — all seven packages are `devDependencies` (`eslint`, `@eslint/js`, `globals`, `pptxgenjs`, `react`, `react-dom`, `react-icons`, `sharp`).
+- There is no build step for the framework itself. The only script with a build nature is `docs/build-presentation.js`, which emits `claude-dev-team-lifecycle.pptx` and is excluded from git.
+
+## Exact commands
+
+| Purpose | Command |
 |---|---|
-| Primary language | Markdown (agent definitions, commands, skills, rules, docs) |
-| Hook/validation | JavaScript (Node.js) — `gate-validator.js` |
-| Bootstrap | Bash — `bootstrap.sh` |
-| Presentation | JavaScript (Node.js) — `docs/build-presentation.js` (pptxgenjs + React SSR + sharp) |
+| Install deps | `npm install` |
+| Run all tests | `npm test` (runs `node --test 'tests/**/*.test.js'`) |
+| Run bootstrap integration tests only | `npm run test:integration` |
+| Run frontmatter validation only | `npm run lint:frontmatter` |
+| Lint JS | `npm run lint` (runs `eslint .`) |
+| Install into a target project | `bash bootstrap.sh /path/to/target` |
+| Build presentation deck | `node docs/build-presentation.js` |
+| Run framework (end user) | `claude` in a target project, then `/pipeline`, `/audit`, etc. |
 
-This is a **configuration-as-code** project. The "product" is the `.claude/` directory and its supporting files.
+System prerequisites for running the bootstrap / tests: **Node.js 20+, git, rsync, bash**. Tests shell out to `bash bootstrap.sh`, which invokes `rsync`; without rsync, 15 integration tests fail. The CI workflow installs rsync explicitly (`sudo apt-get install -y rsync`).
 
-## Build System and Dependency Manager
+## Deployment target
 
-- **No package.json or dependency manifest.** The project has no `npm install` step.
-- `gate-validator.js` uses only Node.js built-ins (`fs`, `path`).
-- `build-presentation.js` requires external deps (`pptxgenjs`, `react`, `react-dom`, `sharp`, `react-icons`) but these are noted in README as ad-hoc install, not managed.
+Not applicable — the framework is not deployed. Users install it locally via `bootstrap.sh`. The simulated `dev-platform` agent's deploy stage targets `docker compose` inside the *user's* project; nothing here runs in production.
 
-## Commands
+## Conventions — documented vs. implied
 
-| Action | Command |
-|---|---|
-| Install deps | N/A (no dependency manager) |
-| Run app | N/A (not an application) |
-| Run tests | N/A (no test suite) |
-| Lint | N/A (no linter configured) |
-| Build | N/A |
-| Bootstrap into a project | `bash bootstrap.sh /path/to/target` |
-| Generate presentation | `npm install pptxgenjs react-icons react react-dom sharp && node docs/build-presentation.js` |
+**Documented** (checked into repo):
+- `CONTRIBUTING.md`: branch → `npm test` → add tests in `tests/*.test.js` → PR.
+- `.claude/skills/code-conventions/SKILL.md`: kebab-case filenames, camelCase JS identifiers, no magic numbers, tests next to source, parameterised SQL, no secrets. Aimed at generated code in target projects, not at this repo's own JS — but the framework's own JS mostly follows it.
+- `.claude/skills/api-conventions/SKILL.md`, `security-checklist/SKILL.md`, `review-rubric/SKILL.md`: apply to generated code.
+- `.claude/rules/pipeline.md`, `gates.md`, `escalation.md`, `orchestrator.md`, `compaction.md`: hard rules for agent orchestration.
+- `.claude/references/audit-phases.md`: formal audit phase definition.
 
-## Deployment Target
+**Implied / undocumented**:
+- Every agent `.md` has YAML frontmatter with `name, description, tools, model, permissionMode` — enforced by `tests/frontmatter.test.js`.
+- Skills live in `.claude/skills/<name>/SKILL.md`.
+- Commit messages follow Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`) — 100% adherence across 38 commits.
+- PRs are squash-merged via GitHub (`Merge pull request #N from <branch>`).
+- Test files use `node:test` (`describe`, `it`) + `node:assert/strict`, no external runner — codified in `CONTRIBUTING.md`.
+- Line-ending / editor config: none (no `.editorconfig`).
+- Emoji in shell output (`🤖`, `✅`, `❌`, `✋`) is common throughout bootstrap + command definitions.
 
-Not deployed independently. Installed into target projects via bootstrap script. Target projects may deploy via Docker Compose (as defined in the `dev-platform` agent's deploy task).
+## Codebase size
 
-## Conventions (Documented)
+- **70 tracked files** (excluding `node_modules`, `.git`).
+- **~8.6k total lines** across markdown + JS + JSON + YAML + shell. `docs/build-presentation.js` alone is 686 lines (~8% of total).
+- Markdown dominates: agent/command/skill definitions, rules, audit output, docs.
+- JS surface area is tiny:
+  - `gate-validator.js` — 90 lines
+  - `docs/build-presentation.js` — 686 lines
+  - `eslint.config.js` — 19 lines
+  - 4 test files — ~660 lines total
+- Shell: `bootstrap.sh` — 168 lines.
 
-1. **Pipeline rules** (`.claude/rules/pipeline.md`) — 8-stage pipeline with gates
-2. **Gate schema** (`.claude/rules/gates.md`) — JSON gate format with required fields
-3. **Escalation rules** (`.claude/rules/escalation.md`) — when/how to escalate
-4. **Code conventions** (`.claude/skills/code-conventions/SKILL.md`) — naming, error handling, security, testing, git
-5. **API conventions** (`.claude/skills/api-conventions/SKILL.md`) — REST patterns, response shapes, pagination
-6. **Security checklist** (`.claude/skills/security-checklist/SKILL.md`) — input validation, auth, secrets, deps
-7. **Review rubric** (`.claude/skills/review-rubric/SKILL.md`) — spec compliance, correctness, security, tests, readability
+**Module/service count**: one top-level framework. Logically it has three internal planes — `.claude/` (the framework), `tests/` (Node tests), `docs/` (lifecycle docs + presentation + audit output).
 
-## Conventions (Undocumented but Implied)
+## Monorepo?
 
-1. Agent files use YAML frontmatter with specific keys: `name`, `description`, `tools`, `model`, `permissionMode`, `skills`, `hooks`
-2. Command files are plain markdown loaded as slash commands
-3. Skill files use YAML frontmatter with `name` and `description` (trigger phrases)
-4. All pipeline artifacts go to `pipeline/` directory
-5. All audit artifacts go to `docs/audit/` directory
-6. Gate files are the single source of truth for pipeline state — not prose
+**No.** Single framework repo. The `src/backend`, `src/frontend`, `src/infra` split lives inside *target* projects, not here.
 
-## Codebase Size
+## Surprises & open questions
 
-| Metric | Count |
-|---|---|
-| Total files (non-.git) | 46 |
-| Agent definitions | 5 |
-| Command definitions | 18 |
-| Skill definitions | 6 |
-| Rule files | 4 |
-| Reference files | 2 |
-| Documentation files | 3 (lifecycle.md, faq.md, build-presentation.js) |
-| Root config/docs | 5 (CLAUDE.md, AGENTS.md, EXAMPLE.md, README.md, bootstrap.sh) |
-| Pipeline scaffolding | 1 (context.md template) |
-| Hooks | 1 (gate-validator.js) |
-
-## Monorepo vs Single App
-
-**Single project** — not a monorepo. It's a framework/template that installs into other projects.
-
-## Surprises and Open Questions
-
-1. **No `package.json`** — `gate-validator.js` and `build-presentation.js` use Node.js but there's no dependency manifest. The hook uses only builtins, but the presentation script requires 4 external packages installed ad-hoc.
-2. **No `.gitignore`** — The repo itself has no `.gitignore`. The bootstrap script appends entries to the *target* project's `.gitignore`, but the framework repo doesn't ignore anything.
-3. **No tests** — A framework that enforces testing conventions on target projects has zero tests of its own. The gate-validator hook is the most critical runtime component and is untested.
-4. **No linter** — Code conventions are documented but not enforced by tooling within this repo.
-5. **`EXAMPLE.md` references `src/` paths** — The example walkthrough describes files in `src/backend/`, `src/frontend/`, `src/infra/` but these directories don't exist in the framework repo.
-6. **`docs/build-presentation.js` is 684 lines** — Largest file in the repo by far. Contains a full slide deck generator with inline content, layout logic, and icon rendering. Feels like it belongs in a separate tool or at minimum should have its own README.
-7. **Settings.json enables experimental features** — `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `"1"`. This is noted as experimental in the README but could break on Claude Code updates.
+1. **`docs/build-presentation.js` is a large, stack-heavy subsystem** (686 lines, pulls React + sharp + pptxgenjs into devDeps) that only produces a marketing deck. Its only test is a `node --check` syntax smoke test. It's an outlier in scope relative to the rest of the repo.
+2. **ESLint 9 flat config, but no rules beyond `js.configs.recommended`.** Effectively a stub lint config.
+3. **`npm run lint:frontmatter` script exists** but is just an alias to run one test file — it doesn't add a dedicated "lint" role. Could be confusing.
+4. **`tests/bootstrap.test.js` requires `rsync`** at runtime and has no platform guard. On a machine without rsync, 15 tests fail with non-obvious errors (the failure mode is stderr from `bash bootstrap.sh` being swallowed into the assertion trace).
+5. **`package-lock.json` is committed (64 KB) but `node_modules/` is not** — normal, but means `bash bootstrap.sh` alone can't make the tests runnable; you need `npm install` first. This isn't documented in `README.md`'s "First-time Setup".
+6. **`CLAUDE.md` is nearly empty** (5 lines of comments). Project-specific instructions for this repo itself aren't captured; the framework rules live under `.claude/rules/`, which is the framework's own territory.
+7. **Two prior audits are already on disk** (`docs/audit/*.md` + `health-check-2026-04.md`). This audit is a re-run after the April 2026 health-check changes.
