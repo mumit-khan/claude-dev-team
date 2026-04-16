@@ -1,199 +1,202 @@
-# Synthesized Backlog
+# 09 — Synthesized Backlog
+
+## Context for this cycle
+
+The April 2026 health check closed all 18 items from the prior roadmap (15 DONE in Batches 1–4; 3 parked, of which #16 was subsequently unparked and completed). This audit therefore starts from a healthy baseline:
+
+- `gate-validator.js` tested (13 subtests covering every exit path).
+- `package.json` with pinned devDeps and a committed lockfile.
+- CI matrix on Node 20/22 + rsync preinstalled.
+- `CONTRIBUTING.md` present.
+- `/reset` cleans orphaned worktrees and archives `context.md`.
+- ESLint configured; frontmatter validation wired into `npm test`.
+- `build-presentation.js` refactored into per-slide functions with JSDoc.
+
+No critical or high-severity findings this cycle. The remaining work is polish, hardening, and a few targeted gaps — suitable for an ongoing maintenance rhythm rather than a crash project.
+
+---
 
 ## Cross-Cutting Themes
 
-### Theme 1: Practice What You Preach
-The framework enforces testing, linting, and dependency management on target projects but has none of these for its own code. The gate-validator hook — the single most critical runtime component — is untested. This undermines credibility when the framework is evaluated by engineering teams.
+### Theme A — Harden the orchestrator's trust boundaries
 
-### Theme 2: Developer Experience for Framework Contributors
-There's no `package.json`, no test script, no contribution guide, and no way to validate changes to agent definitions or commands. Someone modifying the framework must bootstrap into a real project and run a full pipeline to verify their change works.
+The pipeline's single point of control (`gate-validator.js`) is well-tested for shape but not fully defensive: it has no top-level try/catch, the gates-directory enumeration can throw on filesystem errors, and gate fields are concatenated into log output without escaping. Additionally, the `deny` list in `.claude/settings.json` has narrow pattern gaps (short-form `-f`, force-with-lease). These are all Low severity individually but collectively define the blast radius when something unexpected happens.
 
-### Theme 3: Cross-Platform Robustness
-The bootstrap script uses macOS-specific `cp -rn` behavior, there's no `.gitignore`, and the presentation script has unmanaged dependencies. The framework targets developers on macOS, Linux, and potentially CI environments but hasn't been hardened for all of them.
+### Theme B — Contributor UX refinement
 
-### Theme 4: Presentation Script as Technical Debt
-`build-presentation.js` is the largest file (684 lines), least documented, has unmanaged dependencies, and a 620-line monolithic function. It's useful but architecturally disconnected from the framework proper.
+`CONTRIBUTING.md` exists but `CLAUDE.md` remains near-empty. Newcomers get no "Concepts" primer that distinguishes commands / skills / rules / agents / hooks in one place. Small scripts have misleading names (`lint:frontmatter` runs a test). These are all small writes with real onboarding leverage.
 
-### Theme 5: Pipeline Lifecycle Gaps
-Worktree cleanup isn't part of `/reset`, Stage 3 is invisible in status dashboards, `context.md` grows unbounded, and there are no stage-level timeouts. These are minor individually but collectively affect the reliability of long pipeline runs.
+### Theme C — Close the monitoring loop on dependencies
+
+`sharp` and friends are pinned and lockfile-committed, but CVEs aren't watched: `npm audit` isn't run in CI. macOS isn't in the CI matrix, so bootstrap portability to BSD rsync is verified only by contributor goodwill.
+
+### Theme D — Lift tests from shape-only to behavior-only where they are weakest
+
+`smoke-presentation.test.js` is a `node --check` syntax check — near-tautological. Rules-file prose and skill phase definitions have no tests. These are drift vectors: a structural change in `gates.md` or `pipeline.md` won't fail any test until a pipeline run hits the mismatch.
+
+### Theme E — Light polish on the presentation outlier
+
+`build-presentation.js` (686 LOC) is already post-refactor and JSDoc'd. The remaining work — per-slide boilerplate reduction, named constants for magic coordinates, and a heredoc cleanup in `bootstrap.sh` — is low-leverage but cheap when touched.
 
 ---
 
 ## Prioritized Backlog
 
-### P0 — Fix Now
+### P0 — Fix now
 
-**1. Add tests for gate-validator.js**
-- Theme: Practice What You Preach
-- Description: Write a test suite for `gate-validator.js` using Node.js built-in `node:test`. Cover all exit code paths (PASS→0, FAIL→2, ESCALATE→3, malformed→1), missing required fields, empty/missing gates directory, and multiple gate files (latest-wins). This is the most critical runtime component and currently has zero tests.
-- Affected components: `.claude/hooks/gate-validator.js`, new `tests/gate-validator.test.js`
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: High — a bug in gate validation could silently pass a FAIL or falsely block a PASS
-- Dependencies: P0-2 (package.json) should land first or together
-- Confidence: **HIGH**
-
-**2. Add package.json with test script**
-- Theme: Practice What You Preach / Developer Experience
-- Description: Create a minimal `package.json` with `name`, `version`, `scripts.test` (pointing to the gate-validator tests), and `devDependencies` for the presentation script (`pptxgenjs`, `react`, `react-dom`, `sharp`, `react-icons`). This enables `npm test`, `npm audit`, and dependency version pinning.
-- Affected components: New `package.json`, new `package-lock.json`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Medium — unmanaged deps, no `npm test`, no `npm audit`
-- Dependencies: None
-- Confidence: **HIGH**
-
-**3. Add .gitignore**
-- Theme: Cross-Platform Robustness
-- Description: Add a `.gitignore` covering: `.env`, `node_modules/`, `*.pptx`, `docs/audit/` (generated), `pipeline/gates/`, `pipeline/adr/`, `pipeline/code-review/`, `pipeline/brief.md`, `pipeline/design-spec.md`, `pipeline/deploy-log.md`, `pipeline/test-report.md`, `pipeline/pr-*.md`, `pipeline/hotfix-spec.md`, `pipeline/archive/`. The framework repo should practice the same hygiene it prescribes to target projects.
-- Affected components: New `.gitignore`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Medium — accidental commits of generated files or secrets
-- Dependencies: None
-- Confidence: **HIGH**
+*(None. The codebase has no bleeding-wound issues.)*
 
 ---
 
-### P1 — Quick Wins
+### P1 — Quick wins (XS/S effort, self-contained)
 
-**4. Add worktree cleanup to /reset command**
-- Theme: Pipeline Lifecycle Gaps
-- Description: The `/reset` command archives pipeline artifacts but doesn't clean up git worktrees from Stage 4. Add `git worktree list` check and `git worktree remove` for any `dev-team-*` worktrees. Also add a preflight worktree check to `/pipeline` startup.
-- Affected components: `.claude/commands/reset.md`, `.claude/commands/pipeline.md`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Medium — orphaned worktrees cause next pipeline run to fail
-- Dependencies: None
-- Confidence: **HIGH**
+**1. Expand `CLAUDE.md` with repo-specific guidance**
+- Theme: B
+- Description: Add ~30 lines to `CLAUDE.md` explaining that this repo is the framework itself (no target-project code lives here), pointing to `CONTRIBUTING.md`, requiring Conventional Commits, and noting that no runtime dependencies should be added. Currently the file is 5 lines of placeholder boilerplate.
+- Affected: `CLAUDE.md`
+- Effort: **XS** | Risk of change: Low | Risk of not changing: Low-Medium (contributor orientation cost compounds) | Confidence: HIGH
 
-**5. Add Stage 3 to /status dashboard**
-- Theme: Pipeline Lifecycle Gaps
-- Description: The `/status` command example output skips Stage 3 (Pre-Build Clarification). Add it to the template with status "N/A" if no open questions exist, or "PASS" / count of questions answered.
-- Affected components: `.claude/commands/status.md`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Low — cosmetic, but completeness matters for a framework that values observability
-- Dependencies: None
-- Confidence: **HIGH**
+**2. Rename `lint:frontmatter` script or add explanatory comment**
+- Theme: B
+- Description: `npm run lint:frontmatter` is `node --test tests/frontmatter.test.js`. The `lint:*` namespace is misleading. Either rename to `test:frontmatter` for consistency with `test:integration`, or add a trailing `// lint:frontmatter is a test alias` note in `package.json` and the README.
+- Affected: `package.json`, README section if the script is mentioned
+- Effort: **XS** | Risk: Low (may break external calls) | Risk of not changing: Low | Confidence: MEDIUM
 
-**6. Fix bootstrap.sh cross-platform portability**
-- Theme: Cross-Platform Robustness
-- Description: Replace `cp -rn` with a more portable approach. Options: (a) use `rsync --ignore-existing -r` which is standard on macOS and most Linux, (b) use a conditional `cp` with existence checks, or (c) document "requires GNU coreutils" as a prerequisite. Also add basic `$TARGET` path validation.
-- Affected components: `bootstrap.sh`
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: Medium — Linux users may hit unexpected behavior
-- Dependencies: None
-- Confidence: **HIGH**
+**3. Harden `bootstrap.sh` with `set -u` and `pipefail`**
+- Theme: A
+- Description: Change `set -e` to `set -euo pipefail`. Catches unset-variable typos and pipe failures (not relevant today — there are no pipes — but future-proofs modifications). One-line change.
+- Affected: `bootstrap.sh:21`
+- Effort: **XS** | Risk: Low (verify with `npm run test:integration`) | Risk of not changing: Low | Confidence: HIGH
 
-**7. Capture lint output from dev agent hooks**
-- Theme: Practice What You Preach
-- Description: The `|| true` in PostToolUse lint hooks silently swallows failures. Change to log output: `npm run lint --if-present 2>&1 | tee -a pipeline/lint-output.txt || true`. Lint issues are captured for review even if not blocking.
-- Affected components: `.claude/agents/dev-backend.md`, `dev-frontend.md`, `dev-platform.md`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Low — lint violations during builds are currently invisible
-- Dependencies: None
-- Confidence: **MEDIUM**
+**4. Plug short-form and `--force-with-lease` gaps in deny list**
+- Theme: A
+- Description: `.claude/settings.json` denies `git push --force *` and `git push origin main *` but not `git push -f *` or `git push *--force-with-lease*`. Add both patterns. The settings deny-list is the final guard against a prompt-injected or hallucinated destructive push.
+- Affected: `.claude/settings.json`
+- Effort: **XS** | Risk: Low | Risk of not changing: Low (probability low; blast radius high) | Confidence: HIGH
 
----
+**5. Add rsync preflight to `tests/bootstrap.test.js`**
+- Theme: D
+- Description: Detect missing `rsync` at the top of the test file; if absent, fail fast with `assert.fail('rsync not installed; see CONTRIBUTING.md')` instead of letting ~17 subtests produce opaque assertion traces. Same information, much clearer signal.
+- Affected: `tests/bootstrap.test.js`
+- Effort: **XS** | Risk: Low | Risk of not changing: Low (documented; only poor UX) | Confidence: HIGH
 
-### P2 — Targeted Improvements
+**6. Convert `.gitignore` append block in `bootstrap.sh` to a heredoc**
+- Theme: E
+- Description: Replace the 18-line `echo "..." >> "$TARGET/.gitignore"` sequence with a single `cat >> ... <<'EOF' ... EOF` heredoc. Atomic write, easier to read.
+- Affected: `bootstrap.sh:110-132`
+- Effort: **XS** | Risk: Low (existing integration test covers this path) | Risk of not changing: Low | Confidence: HIGH
 
-**8. Add integration tests for bootstrap.sh**
-- Theme: Practice What You Preach
-- Description: Write shell-based integration tests that run bootstrap.sh against temp directories. Test cases: clean target, existing `.claude/`, existing `CLAUDE.md` (backup check), missing deps, idempotency (run twice). Use a test framework like `bats` or raw bash assertions.
-- Affected components: New `tests/bootstrap.test.sh`
-- Effort: **M**
-- Risk of change: Low
-- Risk of NOT changing: Low — bootstrap is rarely modified and manually tested
-- Dependencies: P0-2 (package.json can include a `test:integration` script)
-- Confidence: **MEDIUM**
-
-**9. Add a CONTRIBUTING.md**
-- Theme: Developer Experience
-- Description: Document how to modify and test the framework: directory structure overview, how to test changes (bootstrap into temp project, run a pipeline), how to run tests, how to add a new command/skill/agent, and the YAML frontmatter schema for agents/skills.
-- Affected components: New `CONTRIBUTING.md`
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: Medium — new contributors have no guidance
-- Dependencies: P0-1 and P0-2 should land first (so CONTRIBUTING.md can reference `npm test`)
-- Confidence: **HIGH**
-
-**10. Add a CI workflow**
-- Theme: Practice What You Preach
-- Description: Add `.github/workflows/test.yml` that runs `npm test` on push/PR. Once gate-validator tests exist (P0-1), this ensures regressions are caught. Can also run `node --check` on all JS files for syntax validation.
-- Affected components: New `.github/workflows/test.yml`
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: Low — tests exist but aren't enforced
-- Dependencies: P0-1 (tests), P0-2 (package.json)
-- Confidence: **HIGH**
-
-**11. Rename pipeline-status to pipeline-context**
-- Theme: Developer Experience
-- Description: The `pipeline-status` command is described as a "compact dump for pre-compaction context saving" but its name suggests a status dashboard (which is `/status`). Rename to `pipeline-context` or `pipeline-dump` to reduce confusion.
-- Affected components: `.claude/commands/pipeline-status.md` (rename), README.md, AGENTS.md
-- Effort: **XS**
-- Risk of change: Low — but users who learned the old name need to update muscle memory
-- Risk of NOT changing: Low
-- Dependencies: None
-- Confidence: **LOW**
-
-**12. Manage context.md growth in /reset**
-- Theme: Pipeline Lifecycle Gaps
-- Description: The `/reset` command preserves the full `context.md` with a separator. Over many pipeline runs, this file grows indefinitely. Change `/reset` to archive the current run's context entries to `pipeline/archive/run-{timestamp}/context.md` and reset the main file to the template.
-- Affected components: `.claude/commands/reset.md`
-- Effort: **XS**
-- Risk of change: Low
-- Risk of NOT changing: Low — only matters after many pipeline runs
-- Dependencies: None
-- Confidence: **MEDIUM**
+**7. Add a seed-file warning header to `pipeline/context.md`**
+- Theme: A
+- Description: Prepend a commented line/section to the repo's tracked `pipeline/context.md` that says "This is the framework seed file; do not commit customer or project-specific data here." Prevents a contributor who runs `/pipeline` against this repo from inadvertently committing business details.
+- Affected: `pipeline/context.md`
+- Effort: **XS** | Risk: Low | Risk of not changing: Low | Confidence: MEDIUM
 
 ---
 
-### P3 — Strategic Investments
+### P2 — Targeted improvements (S/M effort, specific benefit)
 
-**13. Refactor build-presentation.js into modular slide builders**
-- Theme: Presentation Script Technical Debt
-- Description: Split the 620-line `build()` function into per-slide functions. Extract common layout helpers (`addTitleSubtitle()`, `addTable()`, `addTwoColumn()`). Add JSDoc to public functions. This makes the script maintainable and extensible.
-- Affected components: `docs/build-presentation.js`
-- Effort: **M**
-- Risk of change: Medium — layout coordinates are fragile, refactoring could break positioning
-- Risk of NOT changing: Low — the script works and is rarely modified
-- Dependencies: P0-2 (package.json for dev deps)
-- Confidence: **MEDIUM**
+**8. Add a "Concepts" section to README or `docs/concepts.md`**
+- Theme: B
+- Description: One-sentence definitions for each of: agent, command, skill, rule, hook. Resolves the persistent onboarding question. Link from README's existing structure; no new top-level doc required. If chosen as a separate file, link from README and CONTRIBUTING.md.
+- Affected: `README.md` (new section) or new `docs/concepts.md`
+- Effort: **S** | Risk: Low | Risk of not changing: Medium (persistent onboarding gap) | Confidence: HIGH
 
-**14. Add schema validation for agent/skill YAML frontmatter**
-- Theme: Developer Experience
-- Description: Create a validation script that reads all `.claude/agents/*.md` and `.claude/skills/*/SKILL.md` files, parses the YAML frontmatter, and validates required fields (`name`, `description`, `tools`, `model` for agents; `name`, `description` for skills). Run as part of `npm test`. Catches typos that would silently fail at runtime.
-- Affected components: New `tests/frontmatter-validator.test.js`, all agent and skill files (read-only)
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: Medium — frontmatter errors are currently silent
-- Dependencies: P0-2 (package.json, test runner)
-- Confidence: **MEDIUM**
+**9. Wrap `gate-validator.js` body in a top-level try/catch**
+- Theme: A
+- Description: Currently a thrown exception inside the validator causes a non-zero hook exit, which the orchestrator sees as a gate signal. Add a top-level catch that prints `[gate-validator] internal error: <msg>; treating as PASS` and exits 0. Trade-off: masks bugs in the validator itself from the orchestrator; mitigated by CI running the full test suite on every PR.
+- Affected: `.claude/hooks/gate-validator.js`, add a test that asserts an internal throw still exits 0 with a WARN message
+- Effort: **S** | Risk: Low (tested) | Risk of not changing: Low (probability low, pipeline-wide blast radius if hit) | Confidence: HIGH
 
-**15. Document stage timeout expectations**
-- Theme: Pipeline Lifecycle Gaps
-- Description: Add expected duration guidance to each stage in `.claude/rules/pipeline.md` (e.g., "Stage 1 typically completes in 2-5 minutes"). Add a soft warning to the orchestrator: if a stage hasn't written its gate file after N minutes, surface a progress check to the user.
-- Affected components: `.claude/rules/pipeline.md`, `CLAUDE.md`
-- Effort: **S**
-- Risk of change: Low
-- Risk of NOT changing: Low — pipelines can hang without feedback but this is rare
-- Dependencies: None
-- Confidence: **LOW**
+**10. Wire `npm audit --audit-level=high` into CI**
+- Theme: C
+- Description: Add a `npm audit --audit-level=high` step to `.github/workflows/test.yml` between `npm install` and `npm test`. Fails the build on high or critical CVEs in devDeps. `sharp` is the most interesting dep to watch.
+- Affected: `.github/workflows/test.yml`, possibly `package.json` (`audit` script)
+- Effort: **XS–S** | Risk: Low (CI-only) | Risk of not changing: Low-Medium (unmonitored native dep) | Confidence: HIGH
+
+**11. Add `macos-latest` to CI matrix**
+- Theme: C
+- Description: Extend `.github/workflows/test.yml` matrix to `os: [ubuntu-latest, macos-latest]`. Verifies `bootstrap.sh` + bootstrap tests against BSD rsync. `ubuntu` already covered; macOS is the other primary contributor environment.
+- Affected: `.github/workflows/test.yml`
+- Effort: **XS** | Risk: Low (one matrix line) | Risk of not changing: Low (works today; drift possible) | Confidence: HIGH
+
+**12. Upgrade `smoke-presentation.test.js` from syntax-only to runtime**
+- Theme: D
+- Description: Add a `--dry-run` or `--out <path>` flag to `build-presentation.js` (or honor an env var like `BUILD_PRESENTATION_OUT=/tmp/x.pptx`). Update the test to run the builder end-to-end, assert exit 0 and output-file-size > 0. Catches dep-compatibility regressions the current syntax check misses.
+- Affected: `docs/build-presentation.js`, `tests/smoke-presentation.test.js`
+- Effort: **S** | Risk: Low-Medium (full runtime; native deps must install on CI runners — already the case) | Risk of not changing: Low | Confidence: MEDIUM
+
+**13. Extend `CONTRIBUTING.md` with "Adding a new command / skill / agent" how-to**
+- Theme: B
+- Description: Three short sections (~40-60 lines total): required frontmatter, file location, how to test, common pitfalls. Closes the remaining onboarding gap identified in `05-documentation.md`.
+- Affected: `CONTRIBUTING.md`
+- Effort: **S** | Risk: Low | Risk of not changing: Low-Medium | Confidence: HIGH
+
+**14. Tighten ESLint rules beyond `recommended`**
+- Theme: A, D
+- Description: Add opinionated-but-minimal rules that surface the documented code-conventions: `eqeqeq: 'error'`, `no-var: 'error'`, `prefer-const: 'warn'`, `no-unused-vars` set to `error` for args/vars, a quote-style rule if the team picks one. Optional: `no-magic-numbers` with `ignore: [0, 1, -1]` scoped to `docs/build-presentation.js` if ready to bite.
+- Affected: `eslint.config.js`, possibly a small round of cleanup in `build-presentation.js` or tests
+- Effort: **S** | Risk: Low-Medium (existing code may need small edits) | Risk of not changing: Low | Confidence: MEDIUM
+
+---
+
+### P3 — Strategic (M/L effort, architectural)
+
+**15. Add a schema-consistency test that cross-checks `gates.md` against `gate-validator.js`**
+- Theme: D
+- Description: Write a test that parses gate-schema examples from `.claude/rules/gates.md`, validates them against the same required-field list the validator enforces, and asserts they match. Guards against documentation drift. One-file addition (`tests/gate-schema-consistency.test.js`).
+- Affected: new `tests/gate-schema-consistency.test.js`, possibly a small refactor of `gate-validator.js` to export its required-fields list
+- Effort: **S–M** | Risk: Low | Risk of not changing: Low | Confidence: MEDIUM
+
+**16. Add a phase-shape test for the `implement` skill**
+- Theme: D
+- Description: Assert that `.claude/skills/implement/SKILL.md` contains specific section headings (Understand / Plan / Build / Verify / Commit) and references `npm test`. Prevents silent skill drift. Same pattern could apply to `audit-phases.md` (assert each phase has its expected subsections).
+- Affected: new `tests/skill-shape.test.js`
+- Effort: **S** | Risk: Low | Risk of not changing: Low | Confidence: LOW
+
+**17. Reduce `context.md` amplification risk**
+- Theme: A
+- Description: Introduce a soft size cap on `pipeline/context.md` (e.g., warn in `/pipeline-context` if >8 KB), or require the orchestrator to summarize rather than concatenate PM Q&A entries. Mitigates the prompt-injection amplification vector (see `06-security.md` S12). Requires design judgment — there's a trade-off against losing full audit trail.
+- Affected: `.claude/rules/orchestrator.md`, `/reset`, `/pipeline-context`
+- Effort: **M** | Risk: Medium (changes agent-context semantics) | Risk of not changing: Low (probability low) | Confidence: LOW
+
+**18. Extract more layout helpers and named constants in `build-presentation.js`**
+- Theme: E
+- Description: Introduce `pageTemplate(pres, {title, subtitle, footer}, bodyBuilder)` and named constants for recurring coordinates (margin, card width, title size). Each slide function becomes 20–40 LOC of data + body callback. Cheap when the file is next touched; don't schedule as standalone work.
+- Affected: `docs/build-presentation.js`
+- Effort: **M** | Risk: Medium (layout regression) | Risk of not changing: Low (rarely edited) | Confidence: MEDIUM
+
+**19. Enable `--experimental-test-coverage` in CI**
+- Theme: D
+- Description: Turn on Node's built-in coverage in the test step; publish the summary to the CI job log. Establishes a coverage number for the record (current coverage is inferred). Optional — not blocking any quality goal.
+- Affected: `package.json` test script (or a separate `test:coverage` script), CI step
+- Effort: **XS–S** | Risk: Low | Risk of not changing: Low | Confidence: LOW
 
 ---
 
 ### Parked
 
-**[DONE] 16. Add YAML frontmatter linting to CI**
-- Completed: `npm run lint:frontmatter` runs frontmatter tests; `npm run lint` (eslint) added to CI workflow.
+**[PARKED] 20. End-to-end pipeline test**
+- Blocked by Claude Code lacking a `--dry-run` or test mode. A full pipeline as an automated test would require a live Claude Code instance and significant token cost. Carried forward from prior cycles.
 
-**17. Add end-to-end pipeline test**
-- Reason: Running a full pipeline as an automated test would require a Claude Code instance and significant token cost. Not practical for CI. Could revisit if Claude Code adds a dry-run or test mode.
+**[PARKED] 21. Consolidate duplicate content across dev-agent files**
+- Blocked by Claude Code not supporting `imports:` / `extends:` in agent frontmatter. The three dev agents must remain self-contained. Carried forward.
 
-**18. Consolidate duplicate agent review instructions**
-- Reason: Claude Code's agent format requires self-contained files. No shared-include mechanism exists. The duplication (Q1, Q2) is a platform limitation, not a framework design flaw. Revisit if Claude Code adds `imports:` or `extends:` to agent definitions.
+**[PARKED] 22. Stage-5 gate write lock**
+- Theoretical race if Stage-5 reviewers ever write truly in parallel. Agent Teams is currently sequential per Claude Code's implementation, so there's no observable bug. Revisit if Claude Code parallelizes subagent file writes.
+
+---
+
+## Severity & Effort Distribution
+
+| Priority | Count | Effort mix |
+|---|---|---|
+| P0 | 0 | — |
+| P1 | 7 | 7× XS |
+| P2 | 7 | 3× XS/S, 4× S |
+| P3 | 5 | 2× S, 2× M, 1× XS/S |
+| Parked | 3 | Platform-blocked |
+
+Total active items: **19** (down from 18 in prior cycle — the prior cycle's items are mostly DONE; these are new or refined findings).
+
+Nothing here is a crisis. This reads as a healthy framework's month-two maintenance list: cheap wins, targeted monitoring adds, a couple of discretionary investments, and a small parked queue waiting on Claude Code platform capabilities.
