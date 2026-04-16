@@ -1,203 +1,276 @@
-# Architecture Map
+# 01 — Architecture Map
 
-## Component Inventory
+_Generated: 2026-04-16_
 
-### 1. Orchestrator (`CLAUDE.md`)
-- **Purpose**: Top-level coordinator. Routes work to agents, enforces gates, manages human checkpoints.
-- **Entry point**: Read by Claude Code on session start.
-- **Internal deps**: `.claude/rules/pipeline.md`, `.claude/rules/gates.md`, `.claude/rules/escalation.md`, `.claude/rules/compaction.md`, `pipeline/context.md`
+## Caveat
 
-### 2. Agent Definitions (`.claude/agents/`)
-- **Purpose**: Define the 5-member virtual dev team with role-scoped permissions.
-- **Components**:
-  - `pm.md` — Product Manager (Opus, Read/Write/Glob, pipeline/ only)
-  - `principal.md` — Principal Engineer (Opus, Read/Write/Glob/Grep/Bash)
-  - `dev-backend.md` — Backend Dev (Sonnet, full toolset, `src/backend/`)
-  - `dev-frontend.md` — Frontend Dev (Sonnet, full toolset, `src/frontend/`)
-  - `dev-platform.md` — Platform Dev (Sonnet, full toolset, `src/infra/`)
-- **Internal deps**: Skills (loaded via `skills:` frontmatter), hooks (PostToolUse lint)
+This repo is a **framework/template**, not a service with a request path.
+"Architecture" here means: the payload of `.claude/` that Claude Code
+consumes at runtime, the installer that deploys it, the test & lint
+tooling around those, and the side presentation-builder. There is no HTTP
+API, no data store, no daemon.
 
-### 3. Commands (`.claude/commands/`)
-- **Purpose**: Slash-command workflows loaded by Claude Code.
-- **Components** (18 commands):
-  - Pipeline: `pipeline.md`, `pipeline-brief.md`, `pipeline-review.md`, `pipeline-status.md`, `status.md`, `stage.md`, `resume.md`, `reset.md`
-  - Audit: `audit.md`, `audit-quick.md`, `health-check.md`, `roadmap.md`
-  - Review: `review.md`
-  - Design: `design.md`
-  - Hotfix: `hotfix.md`
-  - Governance: `adr.md`, `principal-ruling.md`, `ask-pm.md`
-- **Internal deps**: Rules files, agent definitions, pipeline/ and docs/audit/ output
+---
 
-### 4. Skills (`.claude/skills/`)
-- **Purpose**: Passive knowledge loaded by context or trigger phrases.
-- **Components** (6 skills):
-  - `code-conventions/SKILL.md` — Language-agnostic coding standards
-  - `api-conventions/SKILL.md` — REST API patterns
-  - `security-checklist/SKILL.md` — Security review checklist
-  - `review-rubric/SKILL.md` — Pipeline Stage 5 review rubric
-  - `implement/SKILL.md` — Plan/execute/verify workflow for focused changes
-  - `pre-pr-review/SKILL.md` — Pre-merge code review
-- **Internal deps**: Skills reference each other (e.g., pre-pr-review loads security-checklist)
+## Component inventory
 
-### 5. Rules (`.claude/rules/`)
-- **Purpose**: Machine-readable process definitions read by the orchestrator.
-- **Components**:
-  - `pipeline.md` — 8-stage pipeline definition
-  - `gates.md` — JSON gate schema with stage-specific fields
-  - `escalation.md` — When/how to escalate, format, orchestrator behavior
-  - `compaction.md` — What to preserve/discard on context compaction
-- **Internal deps**: Referenced by CLAUDE.md, commands, and agents
+### 1. Orchestrator configuration — `CLAUDE.md` + `.claude/rules/`
 
-### 6. Gate Validator Hook (`.claude/hooks/gate-validator.js`)
-- **Purpose**: Deterministic gate checking after every subagent stop. Reads latest gate JSON, validates structure, exits with status code (0=PASS, 2=FAIL, 3=ESCALATE).
-- **Entry point**: Triggered by `SubagentStop` and `Stop` hooks in settings.json.
-- **Internal deps**: `pipeline/gates/*.json`
+- **Purpose:** Instruct Claude Code how to run the pipeline. Read on every
+  session.
+- **Entry point:** `CLAUDE.md` (loaded automatically by Claude Code).
+- **Files:**
+  - `CLAUDE.md` — currently a near-empty placeholder; the framework ships
+    orchestrator logic under `.claude/rules/orchestrator.md` instead.
+  - `.claude/rules/orchestrator.md` — top-level team/pipeline intro (51 lines).
+  - `.claude/rules/pipeline.md` — 8-stage pipeline (169 lines). Authoritative.
+  - `.claude/rules/gates.md` — JSON gate schema (80 lines).
+  - `.claude/rules/escalation.md` — escalation protocol (41 lines).
+  - `.claude/rules/compaction.md` — context-compaction rules (16 lines).
+- **Internal deps:** consumed by all commands and all agents.
 
-### 7. Bootstrap Script (`bootstrap.sh`)
-- **Purpose**: Install the framework into a target project.
-- **Entry point**: `bash bootstrap.sh /path/to/target`
-- **Internal deps**: All `.claude/` files, root markdown files, `pipeline/context.md`
+### 2. Agent definitions — `.claude/agents/`
 
-### 8. Documentation (`docs/`)
-- **Components**:
-  - `lifecycle.md` — Full written guide for the framework
-  - `faq.md` — FAQ for technical teams evaluating the framework
-  - `build-presentation.js` — Node script generating 18-slide .pptx deck
-- **Internal deps**: None (standalone documentation)
+5 agents, each a single markdown file with YAML frontmatter (`name`,
+`description`, `tools`, `model`, `permissionMode`, optional `skills` and
+`hooks`):
 
-### 9. Cross-Tool Compatibility (`AGENTS.md`)
-- **Purpose**: Human-readable agent summary and compatibility shim for Cursor, GitHub Copilot, etc.
-- **Internal deps**: Mirrors `.claude/agents/` content
-
-### 10. Pipeline Scaffolding (`pipeline/`)
-- **Purpose**: Runtime state directory for pipeline execution.
-- **Components**: `context.md` (template with empty sections)
-- **Internal deps**: Written to by agents, read by orchestrator and gate-validator
-
-## Dependency Graph
-
-```
-CLAUDE.md (orchestrator)
-  ├── .claude/rules/pipeline.md
-  ├── .claude/rules/gates.md
-  ├── .claude/rules/escalation.md
-  ├── .claude/rules/compaction.md
-  └── pipeline/context.md
-
-.claude/agents/*
-  ├── .claude/skills/* (via frontmatter)
-  └── .claude/hooks/gate-validator.js (via PostToolUse)
-
-.claude/commands/*
-  ├── .claude/agents/* (invoke agents)
-  ├── .claude/rules/* (read rules)
-  ├── .claude/references/* (read phase defs)
-  └── pipeline/ + docs/audit/ (write output)
-
-.claude/hooks/gate-validator.js
-  └── pipeline/gates/*.json (read/validate)
-
-bootstrap.sh
-  └── ALL .claude/*, CLAUDE.md, AGENTS.md, EXAMPLE.md, pipeline/context.md (copy to target)
-
-.claude/settings.json
-  ├── .claude/hooks/gate-validator.js (hook config)
-  └── env: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS (feature flag)
-```
-
-**Circular dependencies**: None detected.
-
-**High fan-in components**:
-- `pipeline/context.md` — read by all agents, written to by all agents, checked by orchestrator
-- `.claude/rules/pipeline.md` — read by orchestrator, all commands, and indirectly all agents
-- `.claude/skills/code-conventions/SKILL.md` — loaded by all 3 dev agents
-- `.claude/skills/security-checklist/SKILL.md` — loaded by all 3 dev agents + principal
-
-## External Integrations
-
-| Integration | Type | Used By | Abstracted? |
+| File | Role | Model | Scope |
 |---|---|---|---|
-| Claude Code CLI | Runtime host | All components | N/A — this IS Claude Code config |
-| Node.js | Runtime | gate-validator.js, build-presentation.js | Direct |
-| Git | VCS | bootstrap.sh, dev agents (worktrees) | Direct |
-| Docker Compose | Deploy | dev-platform agent | Direct (in agent instructions) |
-| pptxgenjs | Lib | build-presentation.js | Direct |
-| React/ReactDOM | Lib | build-presentation.js (SSR for icons) | Direct |
-| sharp | Lib | build-presentation.js (SVG→PNG) | Direct |
-| MCP Servers | Optional | Agent frontmatter (GitHub, Slack, Jira) | Documented but not configured |
+| `pm.md` | Product Manager | opus | pipeline/ only |
+| `principal.md` | Principal Engineer | opus | Read/Write/Grep/Glob/Bash |
+| `dev-backend.md` | Backend Dev | sonnet | `src/backend/` |
+| `dev-frontend.md` | Frontend Dev | sonnet | `src/frontend/` |
+| `dev-platform.md` | Platform/QA Dev | sonnet | `src/infra/` + deploy |
 
-## Data Flow
+- `dev-platform.md` embeds a deep **deploy runbook** (docker compose build,
+  up --wait, smoke checks, log capture) — most complex agent (207 lines).
+- Each dev loads `skills: [code-conventions, security-checklist,
+  review-rubric]` via frontmatter.
+- `dev-platform` also defines a `PostToolUse` hook that runs `npm run lint`
+  after any Write/Edit.
 
-### Primary Flow: Feature Pipeline
+### 3. Slash commands — `.claude/commands/`
+
+18 markdown files, each a slash-command workflow. Groups:
+
+- **Pipeline lifecycle** — `pipeline`, `pipeline-brief`, `pipeline-review`,
+  `pipeline-context`, `status`, `stage`, `resume`, `reset`, `hotfix`,
+  `design`, `ask-pm`, `adr`, `principal-ruling`.
+- **Audit/improvement** — `audit`, `audit-quick`, `health-check`, `roadmap`,
+  `review`.
+
+### 4. Skills — `.claude/skills/`
+
+6 skill bundles, each a directory containing a `SKILL.md`:
+
+- `code-conventions/` — cross-cutting coding standards (naming, error
+  handling, logging, testing, git discipline).
+- `api-conventions/` — REST/JSON shape, pagination, error envelopes.
+- `security-checklist/` — input validation, authz, secrets, deps.
+- `review-rubric/` — Stage 5 code-review checklist.
+- `implement/` — plan → execute → verify flow for focused changes.
+- `pre-pr-review/` — pre-merge review flow used by `/review`.
+
+### 5. Gate-validator hook — `.claude/hooks/gate-validator.js`
+
+- **Purpose:** Deterministic read of the most recent gate JSON. Exits
+  `0/2/3` for PASS/FAIL/ESCALATE so Claude Code's SubagentStop/Stop hooks
+  can halt or retry.
+- **Scope:** 89 LOC. Uses only Node built-ins (`fs`, `path`).
+- **Entry point:** Invoked by Claude Code via hook registration in
+  `.claude/settings.json`.
+- **Validation:** checks presence of required fields (`stage`, `status`,
+  `agent`, `timestamp`, `blockers`, `warnings`) and recognizes `PASS`,
+  `FAIL`, `ESCALATE`. Does **not** validate stage-specific fields
+  described in `.claude/rules/gates.md`.
+
+### 6. Bootstrap installer — `bootstrap.sh`
+
+- **Purpose:** Copy `.claude/` and `AGENTS.md` into a target repo via
+  `rsync -a --exclude='*.local.*' --exclude='settings.local.json'`.
+  Create empty `pipeline/`, `src/` substructure, make the hook executable,
+  append pipeline entries to target `.gitignore` idempotently.
+- **Scope:** 167 LOC Bash. Idempotent by design.
+- **Preflight:** checks `node`, `git`, `rsync`, warns on missing `claude` CLI.
+- **AGENTS.md behavior:** the script claims (lines 73–79) to "Create…only
+  if it doesn't exist" then actually copies unconditionally — either
+  create or update. That contradicts the README's "`CLAUDE.md`, `pipeline/context.md`, `src/`, and all `*.local.*` files are untouched" framing, though AGENTS.md is in fact framework-owned. Cosmetic: the
+  "Created" vs "Updated" log line is correct.
+
+### 7. Presentation builder — `docs/build-presentation.js`
+
+- **Purpose:** Generate an 18-slide `.pptx` deck summarising the framework
+  for demos/evangelism.
+- **Scope:** 686 LOC. Uses `pptxgenjs`, React SSR, `sharp` (for SVG→PNG of
+  react-icons).
+- **Internal deps:** none — pure content + layout. Not invoked at runtime
+  by any other code.
+
+### 8. Test suite — `tests/`
+
+- `bootstrap.test.js` (194 LOC) — integration tests; spawns `bootstrap.sh`
+  against a tmp dir, asserts file presence/content/idempotency.
+- `frontmatter.test.js` (174 LOC) — validates every agent and skill has
+  well-formed YAML frontmatter.
+- `gate-validator.test.js` (255 LOC) — exhaustive exit-code/stdout tests
+  for the hook.
+- `smoke-presentation.test.js` (19 LOC) — `node --check` syntax-only test
+  for `build-presentation.js` (no functional coverage).
+
+### 9. CI — `.github/workflows/test.yml`
+
+- Matrix: ubuntu-latest × Node 20/22.
+- Steps: checkout → install rsync → `npm install` → `npm run lint` → `npm test`.
+
+### 10. ESLint — `eslint.config.js`
+
+- Flat config, ESLint 9, `@eslint/js` recommended rules, CommonJS, Node
+  globals.
+
+---
+
+## Dependency graph (internal)
 
 ```
-User → /pipeline command
-  → PM agent writes brief.md + stage-01 gate
-  → [Checkpoint A — human review]
-  → Principal drafts design-spec.md
-  → 3 devs annotate design-review-notes.md (parallel)
-  → Principal chairs review, writes ADRs, stage-02 gate
-  → PM confirms scope fit
-  → [Checkpoint B — human review]
-  → Check context.md for open questions → PM answers
-  → 3 devs build in parallel (git worktrees) → stage-04 gates
-  → 3 devs cross-review → stage-05 gates
-  → Platform dev runs tests → stage-06 gate
-  → [Checkpoint C — human review]
-  → PM signs off → stage-07 gate
-  → Platform dev deploys → stage-08 gate
-  → PM writes stakeholder summary
+                 ┌─────────────────┐
+                 │   bootstrap.sh  │  (one-way: source → target project)
+                 └────────┬────────┘
+                          │ rsync -a
+                          ▼
+                 ┌─────────────────┐
+                 │    .claude/     │  (framework payload)
+                 └────────┬────────┘
+                          │
+        ┌─────────────────┼───────────────────┐
+        ▼                 ▼                   ▼
+    agents/          commands/            skills/
+        │                 │                   │
+        └────┬────────────┘                   │
+             │ consumed by orchestrator       │
+             ▼                                │
+      rules/*.md  ◄─────── settings.json ─────┤
+             │                                │
+             └─── hooks/gate-validator.js ◄───┘
+
+tests/  ──►  .claude/hooks/gate-validator.js          (integration)
+tests/  ──►  bootstrap.sh                             (integration)
+tests/  ──►  .claude/agents/ + .claude/skills/         (lint)
+tests/  ──►  docs/build-presentation.js               (syntax check)
+
+docs/build-presentation.js   (standalone — no other code depends on it)
 ```
 
-### Secondary Flow: Codebase Audit
+**Circular deps:** None at the code level. Markdown files cross-reference
+each other heavily (e.g., `pipeline.md` references `gates.md`,
+`escalation.md`, `compaction.md`), but this is documentation coupling,
+not code.
 
-```
-User → /audit command
-  → Phase 0: Bootstrap (context, architecture, git history)
-  → [Checkpoint A]
-  → Phase 1: Health (compliance, tests, docs)
-  → [Checkpoint B]
-  → Phase 2: Deep analysis (security, performance, quality)
-  → [Checkpoint C]
-  → Phase 3: Roadmap (backlog, sequenced plan)
-```
+**High fan-in:**
+- `.claude/rules/pipeline.md` is read by ≥18 commands.
+- `.claude/rules/gates.md` is read by every agent that writes a gate.
+- `CLAUDE.md` is loaded every session (but is currently empty).
 
-### Secondary Flow: Implement Skill
+---
 
-```
-User → "implement [item]"
-  → Read audit context + roadmap
-  → Plan (present to user, wait for approval)
-  → Execute (lint after each file, stop on surprise)
-  → Verify (full test suite, convention check)
-  → Mark roadmap item [DONE]
-```
+## External integrations
 
-## Configuration Surface
-
-| Config | Location | Purpose |
+| Integration | Where used | Abstracted? |
 |---|---|---|
-| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `.claude/settings.json` env | Enable Agent Teams feature |
-| Permission allowlist | `.claude/settings.json` permissions.allow | Bash, Write, tool permissions |
-| Permission denylist | `.claude/settings.json` permissions.deny | Dangerous git operations |
-| SubagentStop hook | `.claude/settings.json` hooks | Gate validation trigger |
-| Stop hook | `.claude/settings.json` hooks | Gate validation trigger |
-| Agent model selection | `.claude/agents/*.md` frontmatter | Opus vs Sonnet per role |
-| Agent tool scoping | `.claude/agents/*.md` frontmatter | Which tools each agent can use |
-| Agent skill loading | `.claude/agents/*.md` frontmatter | Which skills are auto-loaded |
-| PostToolUse lint hook | `.claude/agents/*.md` frontmatter | Lint on Write/Edit |
+| `rsync` | `bootstrap.sh` | Direct CLI call |
+| `git` | `bootstrap.sh` preflight + test assertions + `/pipeline` worktrees | Direct CLI |
+| `node` | all JS files | Direct |
+| `docker compose` | `dev-platform.md` deploy runbook (target-project runtime only) | Direct CLI |
+| `pptxgenjs` | `docs/build-presentation.js` | Direct import |
+| `react` / `react-dom/server` | `docs/build-presentation.js` (icon rendering only) | Direct |
+| `react-icons` | `docs/build-presentation.js` | Direct |
+| `sharp` | `docs/build-presentation.js` (SVG→PNG) | Direct; requires native binary |
+| ESLint 9 + `@eslint/js` + `globals` | `eslint.config.js` | Direct |
 
-**Env vars**: Only `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. No secrets in the repo.
-**Feature flags**: The experimental agent teams flag.
-**Secrets**: None in the repo. The bootstrap script appends `.env` patterns to target `.gitignore`.
+No databases, APIs, cloud services, or secrets at runtime of this repo.
+The `dev-platform` deploy runbook uses `.env` placeholders but the
+framework itself ships no `.env`.
 
-## What's Working Well
+---
 
-1. **Clear separation of concerns** — Agents, commands, skills, and rules each have a distinct purpose and directory. No blending.
-2. **Machine-readable gates** — Using JSON gate files with a deterministic validator hook is excellent. No ambiguous prose parsing.
-3. **Human-in-the-loop design** — Checkpoints at meaningful transitions (after requirements, after design, after tests) give the user real control.
-4. **Escalation protocol** — Well-defined escalation format with specific decision-needed questions and options. Not just "something went wrong."
-5. **Context persistence** — `pipeline/context.md` as an append-only shared memory across agents is a good pattern for multi-agent coordination.
-6. **Role-based permissions** — PM can't write code, devs can't touch each other's directories, Principal has read-only Bash. Prevents scope creep.
-7. **Comprehensive documentation** — README, EXAMPLE.md, lifecycle.md, and faq.md cover different audiences (quick start, walkthrough, deep dive, evaluators).
-8. **Bootstrap script** — Clean installation path with backup of existing CLAUDE.md, merge-not-overwrite for .claude/, and clear next-steps output.
+## Data flow (primary flows)
+
+### Flow A — Contributor workflow (changes to the framework)
+
+1. Edit a `.claude/**.md` file or `gate-validator.js` or `bootstrap.sh`.
+2. `npm run lint` (ESLint) + `npm test` (Node test runner) locally.
+3. Push → GitHub Actions CI matrix (Node 20/22) runs the same.
+
+### Flow B — Framework installation in a target project
+
+1. User clones this repo and runs `bash bootstrap.sh /path/to/target`.
+2. Script preflights → rsyncs `.claude/` → conditionally creates
+   `CLAUDE.md`, copies `AGENTS.md`, creates `pipeline/`, creates `src/`
+   subdirs, chmods hook, appends `.gitignore` entries.
+3. Target's next `claude` session picks up the new agents/commands/rules.
+
+### Flow C — Feature pipeline (inside a bootstrapped target)
+
+`/pipeline "feature request"` →
+ Stage 1 (pm) → checkpoint A →
+ Stage 2 (principal draft → devs annotate in parallel → principal review) → checkpoint B →
+ Stage 3 (open-question sweep) →
+ Stage 4 (3 devs in parallel via git worktrees) →
+ Stage 5 (peer code review, 2-of-3 approvals per PR) →
+ Stage 6 (dev-platform runs full test suite) → checkpoint C →
+ Stage 7 (PM sign-off) →
+ Stage 8 (dev-platform docker-compose deploy + smoke tests).
+
+Gate files in `pipeline/gates/` mediate every handoff. The hook reads the
+most recently modified gate after every agent stop.
+
+### Flow D — Audit pipeline
+
+`/audit` →
+ Phase 0 (bootstrap: context, architecture, git history) → checkpoint A →
+ Phase 1 (compliance, tests, docs) → checkpoint B →
+ Phase 2 (security, performance, code quality) → checkpoint C →
+ Phase 3 (backlog, sequenced roadmap).
+
+Outputs: `docs/audit/00`..`10` + `status.json`.
+
+---
+
+## Configuration surface
+
+| Config | Defined in | Consumed by |
+|---|---|---|
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | `.claude/settings.json` env | Claude Code runtime |
+| `permissions.allow` / `.deny` | `.claude/settings.json` | Claude Code permission engine |
+| `SubagentStop` / `Stop` hooks | `.claude/settings.json` | Gate validator |
+| Agent frontmatter (model/tools/permissionMode) | `.claude/agents/*.md` | Claude Code agent loader |
+| `engines` / `.nvmrc` | **absent** | — |
+| `.env` / `.env.example` | **absent** in this repo (target projects only) | — |
+
+**Secrets:** none at rest in this repo. The pipeline's target-project
+deploy step expects `.env` in the target.
+
+**Feature flags:** only the experimental agent-teams env flag.
+
+---
+
+## What's working well
+
+1. **Deterministic gate schema + hook.** JSON-only gate files + a tiny
+   validator make the pipeline auditable without parsing prose. Tests
+   cover every exit path (`tests/gate-validator.test.js`).
+2. **Idempotent bootstrap.** `.gitignore` append check, `--exclude` for
+   `*.local.*`, and existence checks for `CLAUDE.md`/`context.md` let
+   users re-run the installer safely to pick up framework updates.
+3. **Frontmatter lint.** Every agent file is checked for presence and
+   shape of required frontmatter fields (`tests/frontmatter.test.js`) —
+   prevents broken agents from shipping.
+4. **Strict separation** of framework-owned vs user-owned files makes
+   updates low-risk.
+5. **Two-tier review.** Stage 5 requires 2-of-3 approvals with a
+   Principal escalation path; encoded as a JSON merge protocol rather
+   than free-form.
+6. **No external runtime deps for the hook.** `gate-validator.js` uses
+   only `fs`/`path`, so users don't need a package.json to run it.
+7. **CI is minimal and fast.** Node-only, matrix on versions the project
+   actually supports.
