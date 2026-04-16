@@ -146,7 +146,7 @@ Commands enumerated in:
 
 Same drift risk as C1. **Fix:** same test covers both.
 
-### C3. CONTRIBUTING.md instructions vs `package.json` scripts — LOW
+### C3. CONTRIBUTING.md instructions vs `package.json` scripts — ✅ in sync
 
 `CONTRIBUTING.md:21-23` documents:
 ```
@@ -154,15 +154,13 @@ npm test                    # unit tests
 npm run test:integration    # integration tests
 ```
 
-But `package.json` scripts:
-- `test` — runs all tests (unit + integration mixed)
-- No `test:integration` script exists.
+Both scripts exist in `package.json`:
+- `test` runs all tests via `node --test 'tests/**/*.test.js'`
+- `test:integration` runs only `tests/bootstrap.test.js`
 
-Running `npm run test:integration` fails with "Missing script:
-test:integration". Either add the script or remove the doc line.
-
-**Fix (preferred):** add `"test:integration": "node --test
-'tests/bootstrap.test.js'"` to `package.json` so the doc line works.
+The one wrinkle: `npm test` already includes the integration test, so
+running both in sequence re-executes the bootstrap suite. Minor — not
+a drift issue.
 
 ## Inline documentation
 
@@ -174,15 +172,18 @@ test:integration". Either add the script or remove the doc line.
 
 One-line comments on the two subtle spots would help future maintainers.
 
-### I2. `docs/build-presentation.js:684 LOC` — MEDIUM
+### I2. `docs/build-presentation.js:686 LOC` — LOW
 
-- Zero function-level docstrings
-- Design palette constants (hex values) carry no explanation of intent
-- 400+ line `main()` body of sequential slide construction with no
-  section markers. A reader cannot skim the file to find "slide 7".
+- Per-slide helpers do have one-line JSDoc comments ✅
+- Slide-orchestration block (`build()` function) has numbered comments
+  per slide ("// 1. Title", "// 2. The Problem", …) ✅
+- Palette constants (hex values) carry no explanation of design intent ⚠️
+- Layout helpers use positional params (`x`, `y`, `w`, `h`) without a
+  coordinate-system reference; a reader has to infer inches from usage ⚠️
 
-**Fix:** add section-header comments every 2-3 slides and a one-line
-docstring per helper. Low-risk refactor, high-readability payoff.
+**Fix:** add a 5-line header comment explaining the coordinate system
+(slide is 10"×5.625", origin top-left) and a one-sentence rationale on
+the palette constants.
 
 ### I3. `bootstrap.sh` — LOW
 
@@ -273,7 +274,6 @@ Pulled into the P1/P2 backlog (`09-backlog.md`):
 |---|---|---|
 | Fix `docs/faq.md:27` stale gitignored claim | S1 | P1 quick win |
 | Add `orchestrator.md` to README project structure | R1 | P1 quick win |
-| Add `test:integration` script or remove from CONTRIBUTING | C3 | P1 quick win |
 | Cross-doc sync test (agents + commands) | C1, C2 | P2 |
 | Populate or remove empty `CLAUDE.md` | Onboarding #1 | P2 |
 | Link `EXAMPLE.md` from README | Onboarding #4 | P1 quick win |

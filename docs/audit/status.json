@@ -4,8 +4,8 @@
   "phases": {
     "phase-0": "complete",
     "phase-1": "complete",
-    "phase-2": "pending",
+    "phase-2": "complete",
     "phase-3": "pending"
   },
-  "current_phase": "phase-2"
+  "current_phase": "phase-3"
 }
