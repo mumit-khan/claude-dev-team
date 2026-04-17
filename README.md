@@ -279,6 +279,7 @@ files are untouched.
 
 The `docs/` directory includes materials for presenting and sharing the framework:
 
+- **[docs/concepts.md](docs/concepts.md)** — Glossary of the core terms (agent, command, skill, rule, hook, gate, stage, ADR, checkpoint, escalation). Read this first if you're new to the framework.
 - **[docs/lifecycle.md](docs/lifecycle.md)** — Full written guide covering audit, implement, review, pipeline, safety model, and maintenance
 - **[docs/faq.md](docs/faq.md)** — Frequently asked questions from technical teams evaluating the framework
 - **[docs/build-presentation.js](docs/build-presentation.js)** — Node script to generate an 18-slide `.pptx` deck (`npm install pptxgenjs react-icons react react-dom sharp && node docs/build-presentation.js`)
