@@ -15,5 +15,11 @@ module.exports = [
         ...globals.node,
       },
     },
+    rules: {
+      eqeqeq: ["error", "always"],
+      "no-var": "error",
+      "prefer-const": "error",
+      "no-implicit-coercion": "error",
+    },
   },
 ];
