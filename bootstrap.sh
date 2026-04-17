@@ -18,7 +18,7 @@
 # Customise via CLAUDE.md, CLAUDE.local.md, or .claude/settings.local.json.
 # ============================================================
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-$(pwd)}"
@@ -109,23 +109,25 @@ echo "🔧  Made gate-validator.js executable"
 # ── Append to .gitignore if it exists ─────────────────────
 if [ -f "$TARGET/.gitignore" ]; then
   if ! grep -q "pipeline/gates/" "$TARGET/.gitignore" 2>/dev/null; then
-    echo "" >> "$TARGET/.gitignore"
-    echo "# Claude Code Dev Team — pipeline artifacts (generated at runtime)" >> "$TARGET/.gitignore"
-    echo "pipeline/brief.md" >> "$TARGET/.gitignore"
-    echo "pipeline/design-spec.md" >> "$TARGET/.gitignore"
-    echo "pipeline/design-review-notes.md" >> "$TARGET/.gitignore"
-    echo "pipeline/pr-*.md" >> "$TARGET/.gitignore"
-    echo "pipeline/code-review/" >> "$TARGET/.gitignore"
-    echo "pipeline/test-report.md" >> "$TARGET/.gitignore"
-    echo "pipeline/deploy-log.md" >> "$TARGET/.gitignore"
-    echo "pipeline/hotfix-spec.md" >> "$TARGET/.gitignore"
-    echo "pipeline/gates/" >> "$TARGET/.gitignore"
-    echo "pipeline/adr/" >> "$TARGET/.gitignore"
-    echo "" >> "$TARGET/.gitignore"
-    echo "# Claude Code Dev Team — local overrides (never committed)" >> "$TARGET/.gitignore"
-    echo ".claude/settings.local.json" >> "$TARGET/.gitignore"
-    echo ".claude/**/*.local.*" >> "$TARGET/.gitignore"
-    echo "CLAUDE.local.md" >> "$TARGET/.gitignore"
+    cat >> "$TARGET/.gitignore" <<'EOF'
+
+# Claude Code Dev Team — pipeline artifacts (generated at runtime)
+pipeline/brief.md
+pipeline/design-spec.md
+pipeline/design-review-notes.md
+pipeline/pr-*.md
+pipeline/code-review/
+pipeline/test-report.md
+pipeline/deploy-log.md
+pipeline/hotfix-spec.md
+pipeline/gates/
+pipeline/adr/
+
+# Claude Code Dev Team — local overrides (never committed)
+.claude/settings.local.json
+.claude/**/*.local.*
+CLAUDE.local.md
+EOF
     echo "🔧  Appended pipeline artifacts and local overrides to .gitignore"
   else
     echo "⏭️   .gitignore already has pipeline entries — skipping"
