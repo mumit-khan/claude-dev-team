@@ -1,6 +1,6 @@
 const { describe, it, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
@@ -12,20 +12,15 @@ const VALIDATOR = path.resolve(__dirname, "..", ".claude", "hooks", "gate-valida
  * Returns { status, stdout, stderr }.
  */
 function run(cwd) {
-  try {
-    const stdout = execFileSync("node", [VALIDATOR], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return { status: 0, stdout, stderr: "" };
-  } catch (err) {
-    return {
-      status: err.status,
-      stdout: err.stdout || "",
-      stderr: err.stderr || "",
-    };
-  }
+  const result = spawnSync("node", [VALIDATOR], {
+    cwd,
+    encoding: "utf8",
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+  };
 }
 
 /** Write a JSON gate file and return its path. */
@@ -238,6 +233,23 @@ describe("gate-validator.js", () => {
     // Should pick the newer FAIL gate, not the older PASS gate
     assert.equal(result.status, 2);
     assert.match(result.stdout, /stage-06/);
+  });
+
+  // ── Internal error safety net ───────────────────────────
+
+  it("exits 0 with a WARN message on internal error", () => {
+    // Simulate a broken environment: pipeline/gates exists but is a file, not
+    // a directory. existsSync returns true, readdirSync throws ENOTDIR.
+    // Without the top-level try/catch this would exit with Node's default
+    // unhandled-error status; with it, we exit 0 so the pipeline is never
+    // blocked by a bug in the validator itself.
+    const pipelineDir = path.join(tmpDir, "pipeline");
+    fs.mkdirSync(pipelineDir, { recursive: true });
+    fs.writeFileSync(path.join(pipelineDir, "gates"), "not a directory");
+
+    const result = run(tmpDir);
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /WARN: internal error/);
   });
 
   // ── Non-JSON files ignored ──────────────────────────────
