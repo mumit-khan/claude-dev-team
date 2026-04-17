@@ -40,13 +40,15 @@ Seven items delivering specific user-facing value. Each makes sense as its own P
 
 | # | Item | Effort | Depends on | Verification |
 |---|---|---|---|---|
-| 8 | "Concepts" section in README or `docs/concepts.md` | S | None | One-paragraph definitions for agent / command / skill / rule / hook |
-| 9 | Top-level try/catch in `gate-validator.js` | S | None | New unit test: internal throw exits 0 with WARN message |
-| 10 | `npm audit --audit-level=high` in CI | XS–S | None | CI fails on introduced high/critical CVEs |
-| 11 | `macos-latest` in CI matrix | XS | Item 3 (bootstrap pipefail) landed | Matrix green on both runners |
-| 12 | Runtime smoke test for `build-presentation.js` | S | None | `--dry-run` / `--out` flag in builder; test runs end-to-end |
-| 13 | "Adding a new command / skill / agent" in CONTRIBUTING.md | S | Item 8 useful but not required | Prose present; copy-paste example works |
-| 14 | Tighten ESLint rules beyond `recommended` | S | None | `npm run lint` still green; small cleanup accepted if needed |
+| 8 | [DONE] "Concepts" section in README or `docs/concepts.md` | S | None | One-paragraph definitions for agent / command / skill / rule / hook |
+| 9 | [DONE] Top-level try/catch in `gate-validator.js` | S | None | New unit test: internal throw exits 0 with WARN message |
+| 10 | [DONE] `npm audit --audit-level=high` in CI | XS–S | None | CI fails on introduced high/critical CVEs |
+| 11 | [DONE] `macos-latest` in CI matrix | XS | Item 3 (bootstrap pipefail) landed | Matrix green on both runners |
+| 12 | [DONE] Runtime smoke test for `build-presentation.js` | S | None | `--dry-run` / `--out` flag in builder; test runs end-to-end |
+| 13 | [DONE] "Adding a new command / skill / agent" in CONTRIBUTING.md | S | Item 8 useful but not required | Prose present; copy-paste example works |
+| 14 | [DONE] Tighten ESLint rules beyond `recommended` | S | None | `npm run lint` still green; small cleanup accepted if needed |
+
+**Completed**: 2026-04-17 across commits `3eb46e4` (CI matrix + npm audit), `ef90e12` (gate-validator try/catch), `89efef3` (presentation smoke test), `3108cfa` (ESLint tightening), `db814e8` (concepts + extension docs). 100 tests pass on Node 20 and 22.
 
 **Estimated effort**: 1–2 working days total if done serially.
 

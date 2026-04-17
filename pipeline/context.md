@@ -57,6 +57,17 @@ a clearer alias for `lint:frontmatter`. pipeline/context.md got a SEED
 FILE header. Deny list tightened against `git push -f` and
 `--force-with-lease`. All 98 tests green on Node 20 and 22.
 
+2026-04-17 — Batch 2 (roadmap post-audit): 7 S items. CI matrix expanded
+to ubuntu × macos × Node 20/22 (4 cells); `npm audit --audit-level=high`
+now gates every build. gate-validator.js wrapped in a top-level try/catch
+so its own bugs never block a pipeline; regression test covers the
+internal-throw path. build-presentation.js accepts `--out=<path>` and
+has an end-to-end runtime smoke test replacing the previous syntax-only
+check. ESLint tightened with eqeqeq/no-var/prefer-const/no-implicit-
+coercion (no fallout). docs/concepts.md added as the canonical glossary;
+CONTRIBUTING.md got a full primer on adding new commands/skills/agents.
+100 tests green on Node 20 and 22.
+
 ---
 
 ## Key Decisions (running log)
