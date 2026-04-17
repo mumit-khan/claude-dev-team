@@ -8,6 +8,13 @@ const os = require('node:os');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const BOOTSTRAP = path.join(REPO_ROOT, 'bootstrap.sh');
 
+try {
+  execFileSync('rsync', ['--version'], { stdio: 'ignore' });
+} catch {
+  console.error('rsync not found on PATH — bootstrap tests require rsync. Install it and retry.');
+  process.exit(1);
+}
+
 function run(target, env = {}) {
   return execFileSync('bash', [BOOTSTRAP, target], {
     cwd: REPO_ROOT,
