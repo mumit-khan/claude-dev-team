@@ -68,9 +68,11 @@ Three S/M items that are worth doing but aren't urgent.
 
 | # | Item | Effort | Depends on | Mini-proposal |
 |---|---|---|---|---|
-| 15 | Gate-schema consistency test | S–M | None | Export the `required` field list from `gate-validator.js` as a module constant; write a test that parses the fenced JSON blocks in `.claude/rules/gates.md` and asserts every required field is present in each example. Guards against spec drift. |
-| 16 | Phase-shape test for the `implement` skill | S | None | Assert `.claude/skills/implement/SKILL.md` contains each phase heading and references `npm test`. Small table-driven test. Extend later to `audit-phases.md` if valuable. |
-| 18 | Presentation layout helpers + named constants | M | None | Extract `pageTemplate(pres, {title, subtitle, footer}, bodyBuilder)`. Introduce named constants (`MARGIN`, `CARD_W`, `TITLE_SIZE`). Run the script before and after; diff the PPTX by slide-count and layout checksum. Do only when the file is next touched — don't schedule as standalone. |
+| 15 | [DONE] Gate-schema consistency test | S–M | None | Export the `required` field list from `gate-validator.js` as a module constant; write a test that parses the fenced JSON blocks in `.claude/rules/gates.md` and asserts every required field is present in each example. Guards against spec drift. |
+| 16 | [DONE] Phase-shape test for the `implement` skill | S | None | Assert `.claude/skills/implement/SKILL.md` contains each phase heading and references `npm test`. Small table-driven test. Extend later to `audit-phases.md` if valuable. |
+| 18 | [PARKED] Presentation layout helpers + named constants | M | None | Extract `pageTemplate(pres, {title, subtitle, footer}, bodyBuilder)`. Introduce named constants (`MARGIN`, `CARD_W`, `TITLE_SIZE`). Run the script before and after; diff the PPTX by slide-count and layout checksum. Do only when the file is next touched — don't schedule as standalone. |
+
+**Completed**: 2026-04-17 across commits `6d2702d` (gate-schema consistency), `942b806` (implement skill phase shape). Item 18 parked per its own "don't schedule as standalone" guidance. 109 tests pass.
 
 **Estimated effort**: 3–5 days if done serially.
 **Infra changes**: None.

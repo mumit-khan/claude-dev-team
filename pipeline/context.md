@@ -68,6 +68,16 @@ coercion (no fallout). docs/concepts.md added as the canonical glossary;
 CONTRIBUTING.md got a full primer on adding new commands/skills/agents.
 100 tests green on Node 20 and 22.
 
+2026-04-17 — Batch 3 (roadmap post-audit): 2 of 3 items done (item 18
+parked per its own "don't schedule as standalone" guidance).
+gate-validator.js refactored: REQUIRED_FIELDS extracted as a module
+constant, CLI body guarded by `require.main === module`, exports added;
+new gate-schema consistency test asserts gates.md's canonical example
+matches REQUIRED_FIELDS exactly (catches drift in either direction).
+Added implement/SKILL.md phase-shape test: table-driven checks for the
+four Step headings plus test-suite/linter references in the Verify
+phase. 109 tests green.
+
 ---
 
 ## Key Decisions (running log)
