@@ -17,13 +17,15 @@ Seven XS-effort items. All self-contained, none blocking each other. Can land as
 
 | # | Item | Effort | Parallel? | Verification |
 |---|---|---|---|---|
-| 1 | Expand `CLAUDE.md` with repo-specific guidance | XS | Yes | File present at ~30 LOC; points to CONTRIBUTING.md |
-| 2 | Rename `lint:frontmatter` or add explanatory note | XS | Yes | `npm run test:frontmatter` (or documented script) works |
-| 3 | `bootstrap.sh` → `set -euo pipefail` | XS | Yes | `npm run test:integration` still passes |
-| 4 | Deny short-form + force-with-lease pushes | XS | Yes | `.claude/settings.json` deny list updated |
-| 5 | rsync preflight in `tests/bootstrap.test.js` | XS | Yes | Without rsync, test fails fast with clear message |
-| 6 | Heredoc `.gitignore` append in `bootstrap.sh` | XS | Yes | Integration test passes; fewer lines |
-| 7 | Seed-file warning header in `pipeline/context.md` | XS | Yes | Header visible at top of file |
+| 1 | [DONE] Expand `CLAUDE.md` with repo-specific guidance | XS | Yes | File present at ~30 LOC; points to CONTRIBUTING.md |
+| 2 | [DONE] Rename `lint:frontmatter` or add explanatory note | XS | Yes | `npm run test:frontmatter` (or documented script) works |
+| 3 | [DONE] `bootstrap.sh` → `set -euo pipefail` | XS | Yes | `npm run test:integration` still passes |
+| 4 | [DONE] Deny short-form + force-with-lease pushes | XS | Yes | `.claude/settings.json` deny list updated |
+| 5 | [DONE] rsync preflight in `tests/bootstrap.test.js` | XS | Yes | Without rsync, test fails fast with clear message |
+| 6 | [DONE] Heredoc `.gitignore` append in `bootstrap.sh` | XS | Yes | Integration test passes; fewer lines |
+| 7 | [DONE] Seed-file warning header in `pipeline/context.md` | XS | Yes | Header visible at top of file |
+
+**Completed**: 2026-04-17 across commits `22d3c38` (bootstrap hardening), `09b40f5` (docs and naming), `747e496` (deny list). All 98 tests green on Node 20 and 22.
 
 **Estimated effort**: 1–2 hours total (single PR feasible).
 **Infra changes**: None.

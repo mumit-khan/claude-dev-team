@@ -49,6 +49,14 @@ rules, added 66-assertion frontmatter schema validation tests for agents
 and skills, refactored build-presentation.js from monolithic build() into
 13 per-slide functions (slide XML verified byte-identical before/after).
 
+2026-04-17 — Batch 1 (roadmap post-audit): 7 XS items. bootstrap.sh now
+uses `set -euo pipefail` and a heredoc for .gitignore append; tests fail
+fast with a clear message if rsync is missing. CLAUDE.md expanded from
+a 5-line stub to ~30 LOC of repo guidance. `test:frontmatter` added as
+a clearer alias for `lint:frontmatter`. pipeline/context.md got a SEED
+FILE header. Deny list tightened against `git push -f` and
+`--force-with-lease`. All 98 tests green on Node 20 and 22.
+
 ---
 
 ## Key Decisions (running log)
