@@ -678,7 +678,7 @@ async function build() {
   // 18. Getting Started
   slideGettingStarted(pres, I);
 
-  const outPath = "claude-dev-team-lifecycle.pptx";
+  const outPath = process.env.BUILD_PRESENTATION_OUT || "claude-dev-team-lifecycle.pptx";
   await pres.writeFile({ fileName: outPath });
   console.log("Wrote " + outPath);
 }
