@@ -29,6 +29,49 @@ Before invoking any agent:
    worktree path contains `dev-team-`, remove it with
    `git worktree remove <path> --force` and note the cleanup in output
 
+## Routing: full pipeline or a lighter track?
+
+Before running the full nine-stage pipeline, decide whether a lighter
+track fits the request better. Three lighter tracks exist:
+
+| Track | Command | Fits |
+|---|---|---|
+| Quick | `/quick` | Single-area change, ≤ ~100 LOC, no auth/crypto/PII/migration/dep change |
+| Config-only | `/config-only` | 100% config file changes (env, flags, compose values) |
+| Dep update | `/dep-update` | Package upgrade, no refactor beyond the minimum |
+
+### Routing decision
+
+Examine the feature request:
+
+1. If the user explicitly asks for a track (`/quick X`, `/config-only Y`,
+   `/dep-update Z`), honour that — do not second-guess.
+2. If the request describes a single-sentence change on one file or
+   config value, **offer** the appropriate track:
+   > "This looks like it fits `/quick` (or `/config-only`). That skips
+   > design and the full peer-review matrix, and takes ~5–10 minutes
+   > instead of ~30–90. Full `/pipeline` still available if you prefer.
+   > Which track?"
+   Wait for the user's choice. Do not auto-downgrade silently.
+3. If the request is ambiguous, ask one clarifying question (scope, area,
+   risk profile) rather than guessing.
+4. If the request is clearly feature-sized (multi-area, API/schema
+   change, new surface), proceed with full pipeline without prompting.
+
+**Safety stoplist** — always use full `/pipeline`, never a lighter track,
+for any of:
+
+- Authentication / authorization / session handling
+- Cryptography, key management, secrets rotation
+- PII / payments / regulated-data handling
+- Schema migrations, destructive data changes
+- Feature-flag introduction (toggling existing flags is fine in `/config-only`)
+- New external dependencies (upgrades are fine in `/dep-update`)
+
+Record the routing decision under `## Brief Changes` in `pipeline/context.md`
+as `TRACK: full` (or `quick` / `config-only` / `dep-update`) with a one-line
+rationale.
+
 ## Execution
 
 Follow the stage sequence in `.claude/rules/pipeline.md` exactly.
