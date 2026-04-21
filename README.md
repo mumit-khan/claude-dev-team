@@ -45,6 +45,9 @@ claude
 | I want to... | Command / Skill |
 |---|---|
 | Build a new feature end-to-end | `/pipeline` |
+| Make a small contained change (typo, docs, one-file refactor) | `/quick` |
+| Change config only (env vars, flag toggles, compose values) | `/config-only` |
+| Update a dependency | `/dep-update` |
 | Draft requirements before committing to a build | `/pipeline-brief` |
 | Fix a production bug urgently | `/hotfix` |
 | Understand a codebase I'm new to | `/audit-quick` |
@@ -57,6 +60,10 @@ claude
 | Run a retrospective on a completed run | `/retrospective` |
 | Resolve a technical disagreement | `/principal-ruling` |
 | Record an architecture decision | `/adr` |
+
+Track reference — when each fits, what they skip, and the safety stoplist —
+lives in [**docs/tracks.md**](docs/tracks.md). Use `/pipeline` when in doubt;
+the orchestrator will offer a lighter track if the change fits one.
 
 ---
 
