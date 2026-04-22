@@ -36,6 +36,7 @@ track fits the request better. Three lighter tracks exist:
 
 | Track | Command | Fits |
 |---|---|---|
+| Nano | `/nano` | Single-file trivial edit (docs, typos, comments, dead-code removal) — no runtime impact |
 | Quick | `/quick` | Single-area change, ≤ ~100 LOC, no auth/crypto/PII/migration/dep change |
 | Config-only | `/config-only` | 100% config file changes (env, flags, compose values) |
 | Dep update | `/dep-update` | Package upgrade, no refactor beyond the minimum |

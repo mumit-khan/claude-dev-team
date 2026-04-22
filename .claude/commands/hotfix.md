@@ -13,7 +13,16 @@ description: >
 The bug and fix description is: $ARGUMENTS
 
 Read `.claude/rules/pipeline.md` for stage details, but run only:
-  Stage 4 (Build) → Stage 5 (Review) → Stage 6 (Test) → Stage 7 (PM sign-off) → Stage 8 (Deploy)
+  Stage 4 (Build) → Stage 4.5b (Security, conditional) → Stage 5 (Review) → Stage 6 (Test) → Stage 7 (PM sign-off) → Stage 8 (Deploy)
+
+**Stage 4.5a (lint + type-check + SCA) is skipped** for hotfixes — the
+blast-radius constraint in `pipeline/hotfix-spec.md` already bounds scope
+tightly enough that pre-review automated checks add more delay than value.
+Record the skip in `pipeline/context.md` as `STAGE-4.5A-SKIP: hotfix track`.
+
+**Stage 4.5b (security review) still runs** if the heuristic fires — hotfixes
+frequently touch security surfaces, and that is exactly when security review is
+most needed. Do not skip 4.5b even under time pressure.
 
 Before invoking any dev agent, write a minimal fix spec to
 `pipeline/hotfix-spec.md` covering:

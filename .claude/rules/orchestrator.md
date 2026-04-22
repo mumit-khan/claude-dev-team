@@ -56,11 +56,25 @@ any unresolved red halt. No human checkpoint — it's always safe to run.
 ## Available Commands
 
 - `/pipeline [feature]` — run the full pipeline
+- `/nano [change]` — trivial edit (docs, typos, dead-code): no brief, no review, no deploy
+- `/quick [change]` — single-area change ≤ ~100 LOC: mini-brief, single dev, single reviewer
+- `/hotfix [bug description]` — expedited fix pipeline (blast-radius bounded)
 - `/pipeline-brief [feature]` — draft brief only
 - `/pipeline-review` — run code review on current src/
 - `/pipeline-context` — show current gate statuses and open questions
 - `/retrospective` — run Stage 9 standalone on the current pipeline state
-- `/hotfix [bug description]` — expedited fix pipeline
+
+### Track selection guide
+
+| Change size | Auth/PII/migration? | Command |
+|---|---|---|
+| Typo, comment, doc | No | `/nano` |
+| ≤ ~100 LOC, one area | No | `/quick` |
+| Any size | Yes | `/pipeline` |
+| Multi-area or new API | No | `/pipeline` |
+| Config values only | No | `/config-only` |
+| Dep upgrade only | No | `/dep-update` |
+| Critical prod bug | — | `/hotfix` |
 
 ## Customization
 
