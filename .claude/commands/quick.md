@@ -90,9 +90,10 @@ If the reviewer writes `REVIEW: CHANGES REQUESTED`, the owning dev fixes in
 their area — no fix-forward. After one round-trip, if it isn't resolved,
 escalate to full `/pipeline`.
 
-### Stage 6 — Tests (Platform dev)
+### Stage 6 — Tests (QA dev)
 
-Invoke: `dev-platform` agent.
+Invoke: `dev-qa` agent (owns Stage 6 from v2.3; see `.claude/rules/pipeline.md`
+§Stage 6 for the full contract).
 Run the test suite; map results to the acceptance criteria in the mini brief.
 Gate file: `pipeline/gates/stage-06.json` with `"all_acceptance_criteria_met":
 true`.
@@ -101,12 +102,17 @@ true`.
 
 ### Stage 7 — PM sign-off (auto-pass)
 
-Quick track folds Stage 7 into Stage 6: if every acceptance criterion passed,
-Stage 7 auto-passes with `"pm_signoff": true` and `"auto_from_stage_06":
-true`. No PM invocation.
+Apply the Stage 7 auto-fold check from `.claude/rules/pipeline.md` §Stage 7.
+For the quick track the `/hotfix` exception does not apply (quick is never
+a hotfix), so the only conditions that matter are:
 
-If any criterion failed, Stage 7 is not auto-passed; invoke `pm` to decide
-delta or abort.
+- `stage-06.json` has `"status": "PASS"` and `"all_acceptance_criteria_met": true`
+- The Stage 6 gate has a 1:1 criterion-to-test mapping
+- The user did not request manual sign-off
+
+When all conditions hold, write Stage 7 with `"pm_signoff": true` and
+`"auto_from_stage_06": true`. No PM invocation.
+If any condition fails, invoke `pm` to decide delta or abort.
 
 ### Stage 8 — Deploy (optional)
 

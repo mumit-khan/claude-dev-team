@@ -43,6 +43,7 @@ const VALID_STATUSES = new Set(["PASS", "FAIL", "ESCALATE"]);
 const VALID_TRACKS = new Set([
   "full",
   "quick",
+  "nano",
   "config-only",
   "dep-update",
   "hotfix",
@@ -94,17 +95,15 @@ function retryValidationError(gate) {
 function findBypassedEscalations(gateFiles) {
   if (gateFiles.length < 2) return [];
 
-  const mostRecentMtime = gateFiles[0].mtime;
+  // gateFiles is sorted most-recent-first. Skip index 0 (the newest gate —
+  // an ESCALATE there is a live halt, not a bypass). Any older gate with
+  // status=ESCALATE was bypassed because a newer gate exists after it.
   const bypassed = [];
-
-  for (const entry of gateFiles) {
-    if (entry.mtime >= mostRecentMtime && entry !== gateFiles[0]) continue;
-    if (entry === gateFiles[0]) continue;
-
-    const { gate } = loadGate(entry.full);
+  for (let i = 1; i < gateFiles.length; i++) {
+    const { gate } = loadGate(gateFiles[i].full);
     if (!gate) continue; // malformed — will surface separately if it's the top entry
     if (gate.status === "ESCALATE") {
-      bypassed.push({ name: entry.name, gate });
+      bypassed.push({ name: gateFiles[i].name, gate });
     }
   }
 

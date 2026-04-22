@@ -13,11 +13,16 @@ const HOOK = path.resolve(
   "approval-derivation.js",
 );
 
-function run(cwd) {
+/**
+ * Run the hook in `cwd`. When `stdinData` is provided it is piped to the
+ * hook's stdin, simulating the PostToolUse context Claude Code sends.
+ */
+function run(cwd, stdinData = null) {
   try {
     const stdout = execFileSync("node", [HOOK], {
       cwd,
       encoding: "utf8",
+      input: stdinData !== null ? stdinData : undefined,
       stdio: ["pipe", "pipe", "pipe"],
     });
     return { status: 0, stdout, stderr: "" };
@@ -28,6 +33,15 @@ function run(cwd) {
       stderr: err.stderr || "",
     };
   }
+}
+
+/** Build a PostToolUse stdin payload for a given file path. */
+function hookContext(filePath) {
+  return JSON.stringify({
+    hook_event_name: "PostToolUse",
+    tool_name: "Write",
+    tool_input: { file_path: filePath },
+  });
 }
 
 function write(filePath, content) {
@@ -307,5 +321,109 @@ describe("approval-derivation.js", () => {
     const result = run(tmpDir);
     assert.equal(result.status, 0);
     assert.match(result.stdout, /malformed/);
+  });
+
+  // ── Concurrency safeguards (v2.5.1+) ────────────────────────────────────
+
+  it("leaves no .lock files after a successful run", () => {
+    write(
+      path.join(reviewDir, "by-frontend.md"),
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    run(tmpDir);
+
+    const lockFiles = fs.existsSync(gatesDir)
+      ? fs.readdirSync(gatesDir).filter((f) => f.endsWith(".lock"))
+      : [];
+    assert.deepEqual(lockFiles, [], "lock files must be cleaned up");
+  });
+
+  it("leaves no .tmp.* files after a successful run", () => {
+    write(
+      path.join(reviewDir, "by-frontend.md"),
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    run(tmpDir);
+
+    const tmpFiles = fs.existsSync(gatesDir)
+      ? fs.readdirSync(gatesDir).filter((f) => f.includes(".tmp."))
+      : [];
+    assert.deepEqual(tmpFiles, [], "temp files must be cleaned up");
+  });
+
+  it("recovers from a stale lock file left by a crashed process", () => {
+    // Pre-create a stale lock — mtime in the past beyond LOCK_STALE_MS (5 s)
+    fs.mkdirSync(gatesDir, { recursive: true });
+    const lockPath = path.join(gatesDir, ".stage-05-backend.lock");
+    fs.writeFileSync(lockPath, "99999"); // fake stale PID
+    const pastTime = new Date(Date.now() - 10000); // 10 s ago
+    fs.utimesSync(lockPath, pastTime, pastTime);
+
+    write(
+      path.join(reviewDir, "by-frontend.md"),
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    run(tmpDir);
+
+    const gate = readGate(gatesDir, "stage-05-backend.json");
+    assert.ok(gate, "gate should be written despite the stale lock");
+    assert.deepEqual(gate.approvals, ["dev-frontend"]);
+    assert.equal(
+      fs.existsSync(lockPath),
+      false,
+      "stale lock must be removed after run",
+    );
+  });
+
+  // ── Stdin-based early exit (v2.5.1+) ────────────────────────────────────
+
+  it("skips gate update when stdin says the written file is not a review file", () => {
+    write(
+      path.join(reviewDir, "by-frontend.md"),
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    // Simulate a Write to src/backend/api.js — not a review file
+    const stdin = hookContext(path.join(tmpDir, "src", "backend", "api.js"));
+    const result = run(tmpDir, stdin);
+    assert.equal(result.status, 0);
+
+    // No gate should be written — the hook exited early
+    const entries = fs.existsSync(gatesDir) ? fs.readdirSync(gatesDir) : [];
+    assert.equal(entries.length, 0, "gate must not be written for a non-review file write");
+  });
+
+  it("processes gates when stdin says the written file is a review file", () => {
+    const reviewFilePath = path.join(reviewDir, "by-frontend.md");
+    write(
+      reviewFilePath,
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    const stdin = hookContext(reviewFilePath);
+    const result = run(tmpDir, stdin);
+    assert.equal(result.status, 0);
+
+    const gate = readGate(gatesDir, "stage-05-backend.json");
+    assert.ok(gate, "gate should be written when the review file is named in stdin");
+    assert.deepEqual(gate.approvals, ["dev-frontend"]);
+  });
+
+  it("falls back to full scan when stdin is empty (manual invocation)", () => {
+    write(
+      path.join(reviewDir, "by-frontend.md"),
+      ["## Review of backend", "REVIEW: APPROVED", ""].join("\n"),
+    );
+
+    // No stdinData — simulates running the hook directly from the shell
+    const result = run(tmpDir);
+    assert.equal(result.status, 0);
+
+    const gate = readGate(gatesDir, "stage-05-backend.json");
+    assert.ok(gate, "full scan fallback must still derive approvals");
+    assert.deepEqual(gate.approvals, ["dev-frontend"]);
   });
 });

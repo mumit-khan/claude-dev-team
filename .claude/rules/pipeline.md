@@ -51,9 +51,10 @@ differ on which stages run and how many approvals a gate requires:
 |---|---|---|---|---|
 | **Full** | `/pipeline` | Stages 1–9 as defined below | 2 per area (matrix) | Full Stage 9 |
 | **Quick** | `/quick` | 1 (mini-brief) → 4 (single dev) → 5 (1 cross-area reviewer) → 6 → 7 (auto) → 8 (optional) → 9 (abbreviated) | 1 per area | Single-dev contribution + Principal synthesis |
+| **Nano** | `/nano` | 4 (single dev) → 6 (affected tests, no regression) → 7 (auto) | None | Fix-log entry only |
 | **Config-only** | `/config-only` | 4 (platform) → 4.5 (lint + config validate) → 6 (no-regression) → 8 (optional) | N/A | Fix-log entry only |
 | **Dep update** | `/dep-update` | 4 (platform + changelog scan + SCA) → 5 (single supply-chain reviewer) → 6 (no-regression) → 8 (optional) | 1 (supply-chain focus) | Fix-log entry only |
-| **Hotfix** | `/hotfix` | 4 → 5 → 6 → 7 → 8 (design skipped; blast-radius rule active) | 2 per area | Abbreviated single-section retro |
+| **Hotfix** | `/hotfix` | 4 → 4.5b (conditional) → 5 → 6 → 7 → 8 (design + 4.5a skipped; blast-radius rule active) | 2 per area | Abbreviated single-section retro |
 
 The routing decision is recorded in `pipeline/context.md` under `## Brief
 Changes` as `TRACK: <name>` with a one-line rationale. Each gate file in
@@ -205,8 +206,15 @@ fires. The heuristic matches any of:
   `*secret*` / `*token*` / `*credential*`
 - New or upgraded dependencies in `package.json`, `requirements.txt`,
   `pyproject.toml`, `Gemfile`, `go.mod`, `composer.json`, `Pipfile`
-- Changes to `Dockerfile`, `docker-compose*.yml` service images
-- Any file under `src/infra/`
+- Changes to `Dockerfile` or `docker-compose*.yml` that add/modify a
+  **service image, network, or volume** (environment-value-only changes
+  that qualify for `/config-only` do not trigger)
+- Files under `src/infra/` that affect **network topology, IAM/RBAC,
+  TLS/certificates, secrets management, or CI/CD secret handling** — e.g.
+  `**/iam*`, `**/rbac*`, `**/network*`, `**/firewall*`, `**/certs*`,
+  `**/secrets*`, or any CI workflow file referencing `${{ secrets.* }}`
+  (config-only infra edits such as port numbers or healthcheck intervals
+  do **not** trigger)
 - New or changed database migrations
 - New environment variables or secret references in `.env.example`
 
@@ -344,6 +352,27 @@ Pre-read requirement (pass to each reviewer agent):
 
 On architectural escalation: invoke `principal` agent. Principal ruling is binding.
 On deadlock (reviewers disagree, no escalation): invoke `principal` agent to decide.
+
+### Review round limit (v2.5.1+)
+
+To prevent an unbounded review-fix spiral, the orchestrator enforces a
+**two-round maximum** per area per pipeline run:
+
+- **Round 1**: reviewer writes `CHANGES REQUESTED` → owning dev fixes →
+  reviewer re-reviews.
+- **Round 2**: if the same reviewer writes `CHANGES REQUESTED` again on
+  the same area, the orchestrator **must not** invoke the dev a third time.
+  Instead it invokes the `principal` agent with:
+  - The two review files
+  - The dev's PR file
+  - The brief and design spec
+  The Principal makes a binding ruling: either the blocker is resolved
+  (dev implements Principal's ruling and the reviewer approves), or the
+  pipeline FAILs with an explicit rejection.
+
+The round counter resets if a different reviewer takes over the area.
+Record the escalation in `pipeline/context.md` as
+`REVIEW-ESCALATED: <area> after 2 rounds — principal ruling requested`.
 
 ---
 
