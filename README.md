@@ -1,4 +1,4 @@
-# Claude Code Dev Team
+# Claude Dev Team
 
 A full simulated software development team running inside Claude Code.
 Includes a PM, Principal Engineer, and five specialist developers
@@ -12,8 +12,7 @@ that promotes lessons into future runs.
 `cat .claude/VERSION` in an installed project. Release history in
 [`CHANGELOG.md`](CHANGELOG.md).
 
-New here? Start with [**docs/concepts.md**](docs/concepts.md) for
-one-sentence definitions of agent, command, skill, rule, and hook.
+New here? Start with the **[user guide](docs/user-guide.md)** for a journey-based walk-through, or the **[adoption guide](docs/adoption-guide.md)** to make the case to your team. Contributing to the framework itself? See **[docs/concepts.md](docs/concepts.md)** for one-sentence definitions of each primitive.
 
 ---
 
@@ -407,10 +406,12 @@ files are untouched.
 
 The `docs/` directory includes materials for presenting and sharing the framework:
 
+- **[docs/user-guide.md](docs/user-guide.md)** — Journey-based user guide: use cases, Mermaid diagrams, "what you'll actually see", workflow fit, and introducing the tool to your team
+- **[docs/adoption-guide.md](docs/adoption-guide.md)** — For engineering managers and skeptics: Q&A on trust, process, team dynamics, and tool safety; what not to do; a 6-week adoption timeline
 - **[docs/concepts.md](docs/concepts.md)** — One-page primer: what an agent, command, skill, rule, and hook each are (and how they compose)
-- **[docs/lifecycle.md](docs/lifecycle.md)** — Full written guide covering audit, implement, review, pipeline, safety model, and maintenance
+- **[docs/presentation-notes.md](docs/presentation-notes.md)** — Speaker notes for each of the 19 deck slides: talking points, transitions, and a timing reference
 - **[docs/faq.md](docs/faq.md)** — Frequently asked questions from technical teams evaluating the framework
-- **[docs/build-presentation.js](docs/build-presentation.js)** — Node script to generate an 18-slide `.pptx` deck (`npm install pptxgenjs react-icons react react-dom sharp && node docs/build-presentation.js`)
+- **[docs/build-presentation.js](docs/build-presentation.js)** — Node script to generate a 19-slide `.pptx` deck (`npm install pptxgenjs react-icons react react-dom sharp && node docs/build-presentation.js`)
 
 ---
 

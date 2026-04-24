@@ -143,7 +143,168 @@ function slideBeforeAfter(pres, I) {
   }
 }
 
-/** Slide 4: Five building blocks. */
+/** Slide 4: What You'll Actually See — terminal output + gate JSON + review blocker. */
+function slideWhatYoullSee(pres) {
+  const s = pres.addSlide();
+  s.background = { color: C.off_white };
+  s.addText("What You'll Actually See", { x: 0.7, y: 0.35, w: 9, h: 0.55, fontSize: 30, fontFace: FONT_H, color: C.text_dark, bold: true, margin: 0 });
+  s.addText("Three concrete artefacts produced on every pipeline run — all written to pipeline/ on disk.", {
+    x: 0.7, y: 0.88, w: 8.5, h: 0.3, fontSize: 12, fontFace: FONT_B, color: C.text_mid, margin: 0 });
+
+  // Left column: Checkpoint A terminal prompt
+  s.addShape("rect", { x: 0.5, y: 1.3, w: 4.4, h: 2.1, fill: { color: "1E1042" } });
+  s.addShape("rect", { x: 0.5, y: 1.3, w: 4.4, h: 0.04, fill: { color: C.accent } });
+  s.addText("Checkpoint A — terminal output", { x: 0.6, y: 1.36, w: 4.2, h: 0.24, fontSize: 9, fontFace: FONT_B, color: C.text_light, italic: true, margin: 0 });
+  const cpA = `━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✋  Checkpoint A — Requirements
+
+PM brief: 7 acceptance criteria
+covering the full password reset
+flow. Out of scope: SMS, social.
+
+Review pipeline/brief.md to adjust
+before design starts.
+
+Type \`proceed\` to continue.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  s.addText(cpA, { x: 0.6, y: 1.62, w: 4.2, h: 1.74, fontSize: 8, fontFace: FONT_C, color: C.accent2, valign: "top", margin: 0 });
+
+  // Left column bottom: Stage 5 reviewer blocker
+  s.addShape("rect", { x: 0.5, y: 3.5, w: 4.4, h: 1.6, fill: { color: "1E1042" } });
+  s.addShape("rect", { x: 0.5, y: 3.5, w: 4.4, h: 0.04, fill: { color: C.red_soft } });
+  s.addText("Stage 5 — reviewer blocker (pipeline/code-review/by-frontend.md)", { x: 0.6, y: 3.56, w: 4.2, h: 0.26, fontSize: 8, fontFace: FONT_B, color: C.text_light, italic: true, margin: 0 });
+  const blocker = `## Review of backend
+
+Token endpoint returns raw token in
+response body. Spec §3.2: hashes only.
+
+BLOCKER: Implementation contradicts
+the approved design spec.
+
+REVIEW: CHANGES REQUESTED`;
+  s.addText(blocker, { x: 0.6, y: 3.85, w: 4.2, h: 1.2, fontSize: 8, fontFace: FONT_C, color: "#F87171", valign: "top", margin: 0 });
+
+  // Right column: Gate JSON
+  s.addShape("rect", { x: 5.1, y: 1.3, w: 4.4, h: 3.8, fill: { color: "1E1042" } });
+  s.addShape("rect", { x: 5.1, y: 1.3, w: 4.4, h: 0.04, fill: { color: "5B21B6" } });
+  s.addText("pipeline/gates/stage-05-backend.json", { x: 5.2, y: 1.36, w: 4.2, h: 0.24, fontSize: 8, fontFace: FONT_B, color: C.text_light, italic: true, margin: 0 });
+  const gateJson = `{
+  "stage": "stage-05-backend",
+  "status": "PASS",
+  "agent": "orchestrator",
+  "timestamp": "2026-04-23T14:22Z",
+  "track": "full",
+  "review_shape": "matrix",
+  "required_approvals": 2,
+  "approvals": [
+    "dev-frontend",
+    "dev-platform"
+  ],
+  "changes_requested": [],
+  "blockers": [],
+  "warnings": []
+}`;
+  s.addText(gateJson, { x: 5.2, y: 1.62, w: 4.2, h: 3.44, fontSize: 8, fontFace: FONT_C, color: C.accent2, valign: "top", margin: 0 });
+
+  // Footer
+  s.addShape("rect", { x: 0.5, y: 5.22, w: 9.1, h: 0.42, fill: { color: C.light_card } });
+  s.addText("Everything written to pipeline/ — full audit trail per run. Gate files are machine-readable; terminal output is for the human in the loop.", {
+    x: 0.65, y: 5.24, w: 8.8, h: 0.38, fontSize: 9, fontFace: FONT_B, color: C.text_mid, valign: "middle", margin: 0 });
+}
+
+/** Slide 5: How It Fits Your Existing Workflow — horizontal flow + two-column table. */
+function slideWorkflowFit(pres) {
+  const s = pres.addSlide();
+  s.background = { color: C.off_white };
+  s.addText("How It Fits Your Existing Workflow", { x: 0.7, y: 0.35, w: 9, h: 0.55, fontSize: 28, fontFace: FONT_H, color: C.text_dark, bold: true, margin: 0 });
+  s.addText("The pipeline is a pre-PR production layer. Your CI/CD, code review, and production deployment are unchanged.", {
+    x: 0.7, y: 0.88, w: 8.5, h: 0.3, fontSize: 12, fontFace: FONT_B, color: C.text_mid, margin: 0 });
+
+  // Horizontal workflow flow
+  const flow = [
+    { label: "Ticket", sub: "Jira / Linear", highlight: false },
+    { label: "Pipeline", sub: "Stages 1–9", highlight: true },
+    { label: "PR", sub: "to your repo", highlight: false },
+    { label: "Human\nReview", sub: "domain + goals", highlight: false },
+    { label: "CI", sub: "GitHub Actions etc.", highlight: false },
+    { label: "Production", sub: "your process", highlight: false },
+  ];
+  for (let i = 0; i < flow.length; i++) {
+    const x = 0.4 + i * 1.6;
+    const bg = flow[i].highlight ? C.accent : C.card_bg;
+    const txtCol = flow[i].highlight ? C.white : C.text_dark;
+    const subCol = flow[i].highlight ? C.off_white : C.text_mid;
+    s.addShape("rect", { x, y: 1.32, w: 1.4, h: 0.62, fill: { color: bg },
+      shadow: flow[i].highlight ? undefined : { type: "outer", blur: 3, offset: 1, angle: 135, color: "000000", opacity: 0.07 } });
+    s.addText(flow[i].label, { x, y: 1.35, w: 1.4, h: 0.35, fontSize: 10.5, fontFace: FONT_H, color: txtCol, bold: true, align: "center", valign: "bottom", margin: 0 });
+    s.addText(flow[i].sub, { x, y: 1.67, w: 1.4, h: 0.24, fontSize: 8, fontFace: FONT_B, color: subCol, align: "center", margin: 0 });
+    if (i < flow.length - 1) {
+      s.addShape("rightArrow", { x: x + 1.4, y: 1.57, w: 0.2, h: 0.1, fill: { color: C.border } });
+    }
+  }
+
+  // Two-column table
+  s.addShape("rect", { x: 0.5, y: 2.15, w: 4.5, h: 0.38, fill: { color: C.accent } });
+  s.addShape("rect", { x: 5.1, y: 2.15, w: 4.5, h: 0.38, fill: { color: C.red_soft } });
+  s.addText("Pipeline does", { x: 0.6, y: 2.17, w: 4.3, h: 0.34, fontSize: 11, fontFace: FONT_H, color: C.white, bold: true, valign: "middle", margin: 0 });
+  s.addText("Pipeline does NOT", { x: 5.2, y: 2.17, w: 4.3, h: 0.34, fontSize: 11, fontFace: FONT_H, color: C.white, bold: true, valign: "middle", margin: 0 });
+
+  const rows = [
+    ["Write code to worktrees, open PR to your repo", "Replace your human code review"],
+    ["Run lint + tests internally (pre-PR)", "Replace your production CI/CD"],
+    ["Deploy to dev/staging via adapter", "Deploy to production (that's your process)"],
+    ["Stage 5 cross-area peer review (structural)", "Replace domain review by your engineers"],
+    ["Record decisions in pipeline/context.md + ADRs", "Update Jira, close tickets, send notifications"],
+  ];
+  for (let i = 0; i < rows.length; i++) {
+    const y = 2.53 + i * 0.5;
+    const bg = i % 2 === 0 ? C.card_bg : C.light_card;
+    s.addShape("rect", { x: 0.5, y, w: 4.5, h: 0.48, fill: { color: bg } });
+    s.addShape("rect", { x: 5.1, y, w: 4.5, h: 0.48, fill: { color: bg } });
+    s.addText(rows[i][0], { x: 0.6, y: y + 0.02, w: 4.3, h: 0.44, fontSize: 9.5, fontFace: FONT_B, color: C.text_dark, valign: "middle", margin: 0 });
+    s.addText(rows[i][1], { x: 5.2, y: y + 0.02, w: 4.3, h: 0.44, fontSize: 9.5, fontFace: FONT_B, color: C.text_dark, valign: "middle", margin: 0 });
+  }
+
+  s.addShape("rect", { x: 0.5, y: 5.08, w: 9.1, h: 0.56, fill: { color: C.light_card } });
+  s.addText("The full pipeline is 30–90 min. /quick is 5–10 min. /nano is 1–3 min. Ceremony is proportional to change size.", {
+    x: 0.65, y: 5.1, w: 8.8, h: 0.52, fontSize: 9.5, fontFace: FONT_B, color: C.text_mid, valign: "middle", margin: 0 });
+}
+
+/** Slide 17: Adoption path — 4 cards in a 2×2 grid. */
+function slideAdoptionPath(pres) {
+  const s = pres.addSlide();
+  s.background = { color: C.off_white };
+  s.addText("Getting Your Team On Board", { x: 0.7, y: 0.35, w: 9, h: 0.55, fontSize: 30, fontFace: FONT_H, color: C.text_dark, bold: true, margin: 0 });
+  s.addText("A 4–6 week path from first demo to normal workflow. Start boring — get to real features fast.", {
+    x: 0.7, y: 0.88, w: 8.5, h: 0.3, fontSize: 12, fontFace: FONT_B, color: C.text_mid, margin: 0 });
+
+  const cards = [
+    { week: "Week 1", cmd: "/audit-quick", title: "Demo on your own codebase", body: "Run an architecture scan on a codebase the team already knows. The output is familiar — architecture map, health findings. The mechanic is new. Let skeptics see a structured output from a real codebase, not a toy example." },
+    { week: "Weeks 1–2", cmd: "/audit", title: "Full audit + roadmap", body: "Run the 4-phase audit and walk through the roadmap together as a team. Use it for sprint planning. The brief it surfaces often contains scope questions that would otherwise emerge mid-implementation." },
+    { week: "Weeks 2–3", cmd: "/pipeline", title: "First run on something boring", body: "Pick a self-contained, non-critical feature: a health-check endpoint, a utility function. The pipeline produces identical artefacts for boring work as for critical work — you get the full learning experience with zero risk." },
+    { week: "Week 4+", cmd: "Normal workflow", title: "Pipeline as standard", body: "The signal that adoption is working: the team stops saying 'let me check what the pipeline produced' and starts saying 'where's the brief?' before any significant change begins." },
+  ];
+
+  for (let i = 0; i < 4; i++) {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = 0.5 + col * 4.8;
+    const y = 1.3 + row * 1.95;
+    s.addShape("rect", { x, y, w: 4.5, h: 1.78, fill: { color: C.card_bg },
+      shadow: { type: "outer", blur: 4, offset: 1, angle: 135, color: "000000", opacity: 0.08 } });
+    s.addShape("rect", { x, y, w: 0.06, h: 1.78, fill: { color: C.accent } });
+    s.addShape("rect", { x: x + 0.15, y: y + 0.12, w: 0.85, h: 0.25, fill: { color: C.light_card } });
+    s.addText(cards[i].week, { x: x + 0.15, y: y + 0.12, w: 0.85, h: 0.25, fontSize: 8, fontFace: FONT_B, color: C.text_mid, align: "center", valign: "middle", italic: true, margin: 0 });
+    s.addText(cards[i].cmd, { x: x + 1.08, y: y + 0.1, w: 3.2, h: 0.28, fontSize: 10.5, fontFace: FONT_C, color: C.accent, bold: true, margin: 0 });
+    s.addText(cards[i].title, { x: x + 0.15, y: y + 0.42, w: 4.2, h: 0.3, fontSize: 11, fontFace: FONT_H, color: C.text_dark, bold: true, margin: 0 });
+    s.addText(cards[i].body, { x: x + 0.15, y: y + 0.74, w: 4.2, h: 0.98, fontSize: 9.5, fontFace: FONT_B, color: C.text_mid, valign: "top", margin: 0 });
+  }
+
+  s.addShape("rect", { x: 0.5, y: 5.25, w: 9.1, h: 0.4, fill: { color: C.light_card } });
+  s.addText("Full adoption guide (Q&A for skeptics, what not to do, 6-week timeline): docs/adoption-guide.md", {
+    x: 0.65, y: 5.27, w: 8.8, h: 0.36, fontSize: 9.5, fontFace: FONT_C, color: C.text_mid, valign: "middle", margin: 0 });
+}
+
+/** Slide 6+: Five building blocks. */
 function slideFivePillars(pres, I) {
   const s = pres.addSlide();
   s.background = { color: C.off_white };
@@ -688,7 +849,7 @@ function slideCodebaseHealth(pres) {
 
 // ── Main build orchestrator ─────────────────────────────────
 
-/** Build the 16-slide presentation deck. */
+/** Build the 19-slide presentation deck. */
 async function build() {
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
@@ -732,31 +893,37 @@ async function build() {
   slideProblem(pres);
   // 3. Before & After
   slideBeforeAfter(pres, I);
-  // 4. Five Building Blocks
+  // 4. What You'll Actually See (NEW)
+  slideWhatYoullSee(pres);
+  // 5. How It Fits Your Existing Workflow (NEW)
+  slideWorkflowFit(pres);
+  // 6. Five Building Blocks
   slideFivePillars(pres, I);
-  // 5. Track Selection
+  // 7. Track Selection
   slideTrackSelection(pres);
-  // 6. Section: The Pipeline
+  // 8. Section: The Pipeline
   sectionSlide(pres, "The Pipeline", "9 stages, 7 agents, 3 human checkpoints — from brief to production", I.branchW);
-  // 7. Pipeline Stages + Checkpoints
+  // 9. Pipeline Stages + Checkpoints
   slidePipelineStages(pres);
-  // 8. Virtual Team
+  // 10. Virtual Team
   slideVirtualTeam(pres);
-  // 9. Gate System
+  // 11. Gate System
   slideGateSystem(pres, I);
-  // 10. Pipeline Observability
-  slidePipelineObservability(pres);
-  // 11. Stage 4.5 — Automated Checks
+  // 12. Stage 4.5 — Automated Checks
   slideStage45(pres, I);
-  // 12. Stage 5 — Peer Review
+  // 13. Stage 5 — Peer Review
   slideStage5Review(pres);
-  // 13. Lessons-Learned Loop
+  // 14. Pipeline Observability
+  slidePipelineObservability(pres);
+  // 15. Lessons-Learned Loop
   slideLessonsLearned(pres, I);
-  // 14. Safety & Trust
+  // 16. Safety & Trust
   slideSafetyTrust(pres, I);
-  // 15. Codebase Health Suite
+  // 17. Adoption Path (NEW)
+  slideAdoptionPath(pres);
+  // 18. Codebase Health Suite
   slideCodebaseHealth(pres);
-  // 16. Getting Started
+  // 19. Getting Started
   slideGettingStarted(pres, I);
 
   const outPath = process.env.BUILD_PRESENTATION_OUT || "claude-dev-team-lifecycle.pptx";
