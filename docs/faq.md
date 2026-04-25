@@ -178,3 +178,9 @@ Pull updates from `github.com/mumit/claude-dev-team` and re-run `bootstrap.sh`. 
 **What's the repo URL?**
 
 [github.com/mumit/claude-dev-team](https://github.com/mumit/claude-dev-team)
+
+---
+
+For deeper coverage of adoption — Q&A for skeptical stakeholders, what not to do in the
+first month, and a 6-week adoption timeline with milestones — see
+**[docs/adoption-guide.md](adoption-guide.md)**.
