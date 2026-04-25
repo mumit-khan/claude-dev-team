@@ -308,7 +308,7 @@ Code review resumes. All three PRs get 2 approvals each.
 
 ## Stage 6 — Tests
 
-`dev-platform` invoked. Writes and runs tests for all 7 acceptance criteria.
+`dev-qa` invoked. Writes and runs tests for all 7 acceptance criteria.
 
 One test initially fails:
 ```
@@ -325,7 +325,7 @@ wildcard handling). Platform re-runs tests. All 7 pass.
 {
   "stage": "stage-06",
   "status": "PASS",
-  "agent": "dev-platform",
+  "agent": "dev-qa",
   "all_acceptance_criteria_met": true,
   "tests_total": 23,
   "tests_passed": 23,
@@ -417,7 +417,7 @@ Stage                    Status      Agent           Notes
 04b Build (frontend)     ✅ PASS     dev-frontend
 04c Build (platform)     ✅ PASS     dev-platform
 05  Code Review          ✅ PASS     all devs        1 escalation resolved
-06  Tests                ✅ PASS     dev-platform    23/23 pass
+06  Tests                ✅ PASS     dev-qa          23/23 pass
 07  PM Sign-off          ✅ PASS     pm
 08  Deploy               ✅ PASS     dev-platform    smoke tests pass
 ───────────────────────────────────────────────────────────────
