@@ -1,0 +1,816 @@
+const { describe, it, beforeEach, afterEach } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync, spawnSync } = require("node:child_process");
+
+const ROOT = path.resolve(__dirname, "..");
+const CLI = path.join(ROOT, "scripts", "claude-team.js");
+
+describe("claude-team CLI", () => {
+  let target;
+
+  beforeEach(() => {
+    target = fs.mkdtempSync(path.join(os.tmpdir(), "claude-cli-"));
+    // Use bootstrap.js which copies scripts/, schemas/, templates/ and adds npm shims
+    execFileSync(process.execPath, [path.join(ROOT, "scripts", "bootstrap.js"), target], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+  });
+
+  afterEach(() => {
+    fs.rmSync(target, { recursive: true, force: true });
+  });
+
+  function run(command, args = [], env = {}) {
+    return spawnSync(process.execPath, [CLI, command, ...args], {
+      cwd: target,
+      encoding: "utf8",
+      env: { ...process.env, ...env },
+    });
+  }
+
+  it("doctor validates installed framework files", () => {
+    const result = run("doctor");
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS CLAUDE\.md/);
+    assert.match(result.stdout, /PASS \.claude\/adapters\/docker-compose\.md/);
+    assert.match(result.stdout, /PASS scripts\/claude-team\.js/);
+    assert.match(result.stdout, /PASS scripts\/gate-validator\.js/);
+    assert.match(result.stdout, /PASS scripts\/consistency\.js/);
+    assert.match(result.stdout, /PASS scripts\/status\.js/);
+    assert.match(result.stdout, /PASS scripts\/roadmap\.js/);
+    assert.match(result.stdout, /PASS scripts\/summary\.js/);
+    assert.match(result.stdout, /PASS scripts\/release\.js/);
+    assert.match(result.stdout, /PASS scripts\/pr-pack\.js/);
+    assert.match(result.stdout, /PASS scripts\/parity-check\.js/);
+    assert.match(result.stdout, /PASS \.claude\/rules\/coding-principles\.md/);
+    assert.match(result.stdout, /PASS \.claude\/rules\/orchestrator\.md/);
+    assert.match(result.stdout, /PASS \.claude\/skills\/api-conventions\/SKILL\.md/);
+    assert.match(result.stdout, /PASS \.claude\/skills\/security-checklist\/SKILL\.md/);
+    assert.match(result.stdout, /PASS schemas\/stage-09\.schema\.json/);
+    assert.match(result.stdout, /PASS templates\/retrospective-template\.md/);
+  });
+
+  it("help prints usage successfully", () => {
+    const result = run("help");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Usage: claude-team <command>/);
+    assert.match(result.stdout, /status \| next \| roadmap/);
+  });
+
+  it("validate runs syntax lint and gate validation", () => {
+    const result = run("validate");
+    assert.equal(result.status, 0);
+  });
+
+  it("status reports gates, artifacts, and audit state", () => {
+    run("stage", ["requirements"]);
+    run("audit-quick", ["src/backend"]);
+    run("ask-pm", ["Which tenants are in scope?"]);
+    run("principal-ruling", ["Should review conflicts be escalated?"]);
+
+    const result = run("status");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Claude Dev Team Status/);
+    assert.match(result.stdout, /Readiness: in-progress/);
+    assert.match(result.stdout, /Gates: 1/);
+    assert.match(result.stdout, /stage-01\.json/);
+    assert.match(result.stdout, /Artifacts/);
+    assert.match(result.stdout, /present pipeline\/brief\.md/);
+    assert.match(result.stdout, /missing pipeline\/design-spec\.md/);
+    assert.match(result.stdout, /Audit/);
+    assert.match(result.stdout, /mode=quick scope=src\/backend status=scaffolded/);
+    assert.match(result.stdout, /Context Signals/);
+    assert.match(result.stdout, /Questions: 1 open \/ 0 answered \/ 1 total/);
+    assert.match(result.stdout, /Principal ruling requests: 1/);
+    assert.match(result.stdout, /open QUESTION: Which tenants are in scope\?/);
+    assert.match(result.stdout, /pending PRINCIPAL-RULING-REQUEST: Should review conflicts be escalated\?/);
+  });
+
+  it("status can emit JSON for automation", () => {
+    run("stage", ["requirements"]);
+
+    const result = run("status", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.readiness, "in-progress");
+    assert.equal(payload.gates[0].name, "stage-01.json");
+    assert.equal(payload.artifacts.find((row) => row.artifact === "pipeline/brief.md").status, "present");
+    assert.equal(payload.context.questions.open, 0);
+  });
+
+  it("next reports the next pipeline action", () => {
+    const result = run("next");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Next Pipeline Step/);
+    assert.match(result.stdout, /Stage: stage-01 \(requirements\)/);
+    assert.match(result.stdout, /Command: npm run stage -- requirements/);
+  });
+
+  it("next can emit JSON for automation", () => {
+    run("stage", ["requirements"]);
+
+    const result = run("next", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.complete, false);
+    assert.equal(payload.action, "complete-stage");
+    assert.equal(payload.stage, "stage-01");
+    assert.equal(payload.command, "npm run prompt -- requirements");
+    assert.equal(payload.track, "full");
+  });
+
+  it("next honors quick-track stage order", () => {
+    run("quick", ["Fix empty state copy"]);
+    const requirementsGate = path.join(target, "pipeline", "gates", "stage-01.json");
+    const gate = JSON.parse(fs.readFileSync(requirementsGate, "utf8"));
+    gate.status = "PASS";
+    gate.required_sections_complete = true;
+    fs.writeFileSync(requirementsGate, `${JSON.stringify(gate, null, 2)}\n`);
+
+    const result = run("next");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Stage: stage-04 \(build\)/);
+    assert.match(result.stdout, /Track: quick/);
+    assert.match(result.stdout, /Command: CLAUDE_TEAM_TRACK=quick npm run stage -- build/);
+  });
+
+  it("next skips full-track ceremonies for nano", () => {
+    run("nano", ["Fix README typo"]);
+    const buildGate = path.join(target, "pipeline", "gates", "stage-04.json");
+    const gate = JSON.parse(fs.readFileSync(buildGate, "utf8"));
+    gate.status = "PASS";
+    fs.writeFileSync(buildGate, `${JSON.stringify(gate, null, 2)}\n`);
+
+    const result = run("next", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.track, "nano");
+    assert.equal(payload.stage, "stage-06");
+    assert.equal(payload.name, "qa");
+    assert.equal(payload.command, "CLAUDE_TEAM_TRACK=nano npm run stage -- qa");
+  });
+
+  it("next routes dep-update from build to scoped review", () => {
+    run("dep-update", ["Upgrade lodash to 4.17.21"]);
+    const buildGate = path.join(target, "pipeline", "gates", "stage-04.json");
+    const gate = JSON.parse(fs.readFileSync(buildGate, "utf8"));
+    gate.status = "PASS";
+    fs.writeFileSync(buildGate, `${JSON.stringify(gate, null, 2)}\n`);
+
+    const result = run("next", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.track, "dep-update");
+    assert.equal(payload.stage, "stage-05-deps");
+    assert.equal(payload.command, "npm run prompt -- peer-review");
+  });
+
+  it("next keeps hotfix on its expedited track", () => {
+    run("hotfix", ["Fix production checkout timeout"]);
+    const buildGate = path.join(target, "pipeline", "gates", "stage-04.json");
+    const gate = JSON.parse(fs.readFileSync(buildGate, "utf8"));
+    gate.status = "PASS";
+    fs.writeFileSync(buildGate, `${JSON.stringify(gate, null, 2)}\n`);
+
+    const result = run("next", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.track, "hotfix");
+    assert.equal(payload.stage, "stage-04a");
+    assert.equal(payload.command, "CLAUDE_TEAM_TRACK=hotfix npm run stage -- pre-review");
+  });
+
+  it("next offers auto-fold when quick QA can become sign-off", () => {
+    run("quick", ["Fix empty state copy"]);
+    fs.writeFileSync(path.join(target, "pipeline", "gates", "stage-01.json"), JSON.stringify({
+      stage: "stage-01",
+      status: "PASS",
+      agent: "pm",
+      track: "quick",
+      timestamp: "2026-04-30T00:00:00Z",
+      blockers: [],
+      warnings: [],
+      acceptance_criteria_count: 1,
+      out_of_scope_items: [],
+      required_sections_complete: true,
+    }));
+    fs.writeFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), JSON.stringify({
+      stage: "stage-04",
+      status: "PASS",
+      agent: "claude-team",
+      track: "quick",
+      timestamp: "2026-04-30T00:00:00Z",
+      blockers: [],
+      warnings: [],
+      workstreams: ["frontend"],
+      pr_summaries_written: ["pipeline/pr-frontend.md"],
+      local_verification: ["npm test"],
+    }));
+    fs.writeFileSync(path.join(target, "pipeline", "gates", "stage-05-backend.json"), JSON.stringify({
+      stage: "stage-05-backend",
+      status: "PASS",
+      agent: "claude-team",
+      track: "quick",
+      timestamp: "2026-04-30T00:00:00Z",
+      blockers: [],
+      warnings: [],
+      area: "backend",
+      review_shape: "scoped",
+      required_approvals: 1,
+      approvals: ["platform"],
+      changes_requested: [],
+      escalated_to_principal: false,
+    }));
+    fs.writeFileSync(path.join(target, "pipeline", "gates", "stage-06.json"), JSON.stringify({
+      stage: "stage-06",
+      status: "PASS",
+      agent: "qa",
+      track: "quick",
+      timestamp: "2026-04-30T00:00:00Z",
+      blockers: [],
+      warnings: [],
+      all_acceptance_criteria_met: true,
+      tests_total: 1,
+      tests_passed: 1,
+      tests_failed: 0,
+      failing_tests: [],
+      criterion_to_test_mapping_is_one_to_one: true,
+    }));
+
+    const result = run("next", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.action, "auto-fold-signoff");
+    assert.equal(payload.command, "npm run autofold");
+  });
+
+  it("autofold writes sign-off from passing QA", () => {
+    run("quick", ["Fix empty state copy"]);
+    fs.writeFileSync(path.join(target, "pipeline", "gates", "stage-06.json"), JSON.stringify({
+      stage: "stage-06",
+      status: "PASS",
+      agent: "qa",
+      track: "quick",
+      timestamp: "2026-04-30T00:00:00Z",
+      blockers: [],
+      warnings: [],
+      all_acceptance_criteria_met: true,
+      tests_total: 1,
+      tests_passed: 1,
+      tests_failed: 0,
+      failing_tests: [],
+      criterion_to_test_mapping_is_one_to_one: true,
+    }));
+
+    const result = run("autofold");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /created pipeline\/gates\/stage-07\.json/);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-07.json"), "utf8"));
+    assert.equal(gate.pm_signoff, true);
+    assert.equal(gate.auto_from_stage_06, true);
+    assert.equal(gate.deploy_requested, false);
+  });
+
+  it("autofold writes nano QA from build regression evidence", () => {
+    run("nano", ["Fix README typo"]);
+    const buildGatePath = path.join(target, "pipeline", "gates", "stage-04.json");
+    const buildGate = JSON.parse(fs.readFileSync(buildGatePath, "utf8"));
+    buildGate.status = "PASS";
+    buildGate.regression_check = "PASS";
+    fs.writeFileSync(buildGatePath, `${JSON.stringify(buildGate, null, 2)}\n`);
+
+    const result = run("autofold");
+
+    assert.equal(result.status, 0);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-06.json"), "utf8"));
+    assert.equal(gate.track, "nano");
+    assert.equal(gate.regression_check, "PASS");
+    assert.equal(gate.auto_from_stage_04, true);
+  });
+
+  it("summary writes a durable pipeline summary", () => {
+    run("stage", ["requirements"]);
+
+    const result = run("summary");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /wrote pipeline\/summary\.md/);
+    const summary = fs.readFileSync(path.join(target, "pipeline", "summary.md"), "utf8");
+    assert.match(summary, /# Pipeline Summary/);
+    assert.match(summary, /Readiness: in-progress/);
+    assert.match(summary, /stage-01\.json/);
+    assert.match(summary, /pipeline\/brief\.md \| present/);
+    assert.match(summary, /pipeline\/design-spec\.md \| missing/);
+  });
+
+  it("reset archives context and recreates runtime folders", () => {
+    const gates = path.join(target, "pipeline", "gates");
+    const review = path.join(target, "pipeline", "code-review");
+    const lessons = path.join(target, "pipeline", "lessons-learned.md");
+    fs.writeFileSync(path.join(target, "pipeline", "brief.md"), "# Brief\n");
+    fs.writeFileSync(path.join(target, "pipeline", "pr-backend.md"), "# Backend PR\n");
+    fs.writeFileSync(path.join(gates, "stage-01.json"), "{}");
+    fs.writeFileSync(path.join(review, "by-backend.md"), "APPROVED\n");
+    fs.appendFileSync(lessons, "\n### L999 - Keep me\n");
+
+    const result = run("reset");
+    assert.equal(result.status, 0);
+    assert.deepEqual(fs.readdirSync(gates), []);
+    assert.deepEqual(fs.readdirSync(review), []);
+    assert.equal(fs.existsSync(path.join(target, "pipeline", "brief.md")), false);
+    assert.equal(fs.existsSync(path.join(target, "pipeline", "pr-backend.md")), false);
+    const archiveRuns = fs.readdirSync(path.join(target, "pipeline", "archive"));
+    assert.equal(archiveRuns.length, 1);
+    const archivedRun = path.join(target, "pipeline", "archive", archiveRuns[0]);
+    assert.ok(fs.existsSync(path.join(archivedRun, "context.md")));
+    assert.ok(fs.existsSync(path.join(archivedRun, "brief.md")));
+    assert.ok(fs.existsSync(path.join(archivedRun, "pr-backend.md")));
+    assert.ok(fs.existsSync(path.join(archivedRun, "gates", "stage-01.json")));
+    assert.ok(fs.existsSync(path.join(archivedRun, "code-review", "by-backend.md")));
+    assert.match(fs.readFileSync(lessons, "utf8"), /L999/);
+  });
+
+  it("runbook command checks deploy runbooks", () => {
+    fs.writeFileSync(path.join(target, "pipeline", "runbook.md"), [
+      "# Runbook",
+      "",
+      "## Rollback",
+      "Revert.",
+      "",
+      "## Health signals",
+      "Smoke.",
+      "",
+    ].join("\n"));
+
+    const result = run("runbook");
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Runbook OK/);
+  });
+
+  it("audit command scaffolds full audit outputs", () => {
+    const result = run("audit", ["src/backend"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "docs", "audit", "00-project-context.md")));
+    assert.ok(fs.existsSync(path.join(target, "docs", "audit", "10-roadmap.md")));
+    const status = JSON.parse(fs.readFileSync(path.join(target, "docs", "audit", "status.json"), "utf8"));
+    assert.equal(status.mode, "full");
+    assert.equal(status.scope, "src/backend");
+    assert.ok(status.outputs.includes("docs/audit/10-roadmap.md"));
+  });
+
+  it("audit-quick command scaffolds orientation outputs only", () => {
+    const result = run("audit-quick", ["src/frontend"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "docs", "audit", "00-project-context.md")));
+    assert.ok(fs.existsSync(path.join(target, "docs", "audit", "01-architecture.md")));
+    assert.equal(fs.existsSync(path.join(target, "docs", "audit", "10-roadmap.md")), false);
+    const status = JSON.parse(fs.readFileSync(path.join(target, "docs", "audit", "status.json"), "utf8"));
+    assert.equal(status.mode, "quick");
+    assert.equal(status.scope, "src/frontend");
+  });
+
+  it("health-check command scaffolds audit status for a delta scan", () => {
+    const result = run("health-check");
+
+    assert.equal(result.status, 0);
+    const status = JSON.parse(fs.readFileSync(path.join(target, "docs", "audit", "status.json"), "utf8"));
+    assert.equal(status.mode, "health-check");
+    assert.equal(status.scope, "whole project");
+  });
+
+  it("roadmap can emit JSON for automation", () => {
+    run("audit", ["src/backend"]);
+    fs.appendFileSync(path.join(target, "docs", "audit", "10-roadmap.md"), [
+      "| 1 | [DONE] Add pipeline status | High | S | Low | npm run status | scripts |",
+      "| 2 | Add retry routing | High | M | Medium | npm test | pipeline |",
+      "",
+    ].join("\n"));
+
+    const result = run("roadmap", ["--json"]);
+
+    assert.equal(result.status, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.exists, true);
+    assert.equal(payload.done, 1);
+    assert.equal(payload.remaining, 1);
+    assert.equal(payload.next[0].id, 2);
+    assert.equal(payload.next[0].item, "Add retry routing");
+  });
+
+  it("pipeline:new prepares workspace and records feature name", () => {
+    const result = run("pipeline:new", ["Add search"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Pipeline workspace ready/);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /Add search/);
+  });
+
+  it("pipeline command starts a feature and scaffolds requirements", () => {
+    const result = run("pipeline", ["Add notifications"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Pipeline workspace ready/);
+    assert.match(result.stdout, /created pipeline\/brief\.md/);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "brief.md")));
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /Add notifications/);
+  });
+
+  it("quick command starts a quick-track mini brief", () => {
+    const result = run("quick", ["Fix empty state copy"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: quick/);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "brief.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-01.json"), "utf8"));
+    assert.equal(gate.track, "quick");
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /TRACK: quick/);
+  });
+
+  it("nano command records scope and starts the edit stage", () => {
+    const result = run("nano", ["Fix README typo"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: nano/);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "build-plan.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), "utf8"));
+    assert.equal(gate.track, "nano");
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /TRACK: nano/);
+  });
+
+  it("config-only command records config scope and starts platform edit", () => {
+    const result = run("config-only", ["Toggle existing checkout flag"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: config-only/);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), "utf8"));
+    assert.equal(gate.track, "config-only");
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /CONFIG-ONLY scope/);
+  });
+
+  it("dep-update command records dependency scope and starts platform edit", () => {
+    const result = run("dep-update", ["Upgrade lodash to 4.17.21"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: dep-update/);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), "utf8"));
+    const reviewGate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-05-deps.json"), "utf8"));
+    assert.equal(gate.track, "dep-update");
+    assert.equal(reviewGate.track, "dep-update");
+    assert.equal(reviewGate.review_shape, "scoped");
+    assert.equal(reviewGate.required_approvals, 1);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /DEP-UPDATE: Upgrade lodash/);
+  });
+
+  it("hotfix command writes a hotfix spec and starts expedited build", () => {
+    const result = run("hotfix", ["Fix production checkout timeout"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: hotfix/);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "hotfix-spec.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), "utf8"));
+    assert.equal(gate.track, "hotfix");
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "hotfix-spec.md"), "utf8"), /Fix production checkout timeout/);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /STAGE-4\.5A-SKIP: hotfix track/);
+  });
+
+  it("track starter commands require a description", () => {
+    const result = run("quick");
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Usage: claude-team quick <change description>/);
+  });
+
+  it("pipeline:scaffold command prepares all stage artifacts and gates", () => {
+    const result = run("pipeline:scaffold", ["Add exports"]);
+
+    assert.equal(result.status, 0);
+    for (const artifact of [
+      "brief.md",
+      "design-spec.md",
+      "clarification-log.md",
+      "build-plan.md",
+      "pre-review.md",
+      "test-report.md",
+      "runbook.md",
+      "retrospective.md",
+    ]) {
+      assert.ok(fs.existsSync(path.join(target, "pipeline", artifact)), `${artifact} should exist`);
+    }
+    for (const gate of [
+      "stage-01.json",
+      "stage-02.json",
+      "stage-03.json",
+      "stage-04.json",
+      "stage-04a.json",
+      "stage-05-backend.json",
+      "stage-06.json",
+      "stage-07.json",
+      "stage-08.json",
+      "stage-09.json",
+    ]) {
+      assert.ok(fs.existsSync(path.join(target, "pipeline", "gates", gate)), `${gate} should exist`);
+    }
+    assert.match(result.stdout, /Pipeline scaffold complete/);
+  });
+
+  it("pipeline-brief command can scaffold requirements by feature name", () => {
+    const result = run("pipeline-brief", ["Add reports"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /created pipeline\/brief\.md/);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /Add reports/);
+  });
+
+  it("design command starts requirements and design artifacts", () => {
+    const result = run("design", ["Add billing"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "brief.md")));
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "design-spec.md")));
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "gates", "stage-01.json")));
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "gates", "stage-02.json")));
+  });
+
+  it("pipeline-context prints context and gate status", () => {
+    run("stage", ["requirements"]);
+
+    const result = run("pipeline-context");
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /# Project Context/);
+    assert.match(result.stdout, /Claude Dev Team Status/);
+    assert.match(result.stdout, /stage-01\.json/);
+  });
+
+  it("pipeline-review scaffolds review artifacts and derives review gates", () => {
+    const result = run("pipeline-review");
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "code-review", "by-backend.md")));
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "gates", "stage-05-backend.json")));
+  });
+
+  it("pipeline-review precreates quick scoped review gates from PR files", () => {
+    run("quick", ["Fix empty state copy"]);
+    fs.writeFileSync(path.join(target, "pipeline", "pr-frontend.md"), "# Frontend PR\n");
+
+    const result = run("pipeline-review");
+
+    assert.equal(result.status, 0);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-05-frontend.json"), "utf8"));
+    assert.equal(gate.track, "quick");
+    assert.equal(gate.review_shape, "scoped");
+    assert.equal(gate.required_approvals, 1);
+  });
+
+  it("retrospective scaffolds retrospective artifacts", () => {
+    const result = run("retrospective");
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "retrospective.md")));
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "gates", "stage-09.json")));
+    assert.match(result.stdout, /LESSON:/);
+  });
+
+  it("adr creates a numbered decision record and context entry", () => {
+    const result = run("adr", ["Use webhooks for external sync"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /created pipeline\/adr\/0001-use-webhooks-for-external-sync\.md/);
+    const adr = fs.readFileSync(path.join(target, "pipeline", "adr", "0001-use-webhooks-for-external-sync.md"), "utf8");
+    assert.match(adr, /# ADR 0001 - Use webhooks for external sync/);
+    assert.match(adr, /\*\*Status\*\*: Proposed/);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /ADR 0001: Use webhooks/);
+  });
+
+  it("ask-pm records questions and emits clarification instructions", () => {
+    const recorded = run("ask-pm", ["Which tenants are in scope?"]);
+
+    assert.equal(recorded.status, 0);
+    assert.match(recorded.stdout, /recorded QUESTION/);
+    assert.match(fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"), /QUESTION: Which tenants are in scope\?/);
+
+    const prompt = run("ask-pm");
+    assert.equal(prompt.status, 0);
+    assert.match(prompt.stdout, /PM Clarification Pass/);
+    assert.match(prompt.stdout, /PM-ANSWER/);
+  });
+
+  it("principal-ruling records ruling requests", () => {
+    const result = run("principal-ruling", ["Should review conflicts be escalated?"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /recorded PRINCIPAL-RULING-REQUEST/);
+    assert.match(
+      fs.readFileSync(path.join(target, "pipeline", "context.md"), "utf8"),
+      /PRINCIPAL-RULING-REQUEST: Should review conflicts be escalated\?/,
+    );
+  });
+
+  it("resume emits a stage prompt after prior gates pass", () => {
+    const result = run("resume", ["1", "new feature approved"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Resume: stage-01 \(requirements\)/);
+    assert.match(result.stdout, /Reason: new feature approved/);
+    assert.match(result.stdout, /Stage: stage-01 \(requirements\)/);
+  });
+
+  it("resume blocks when prior gates are missing or not passing", () => {
+    const result = run("resume", ["2"]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Cannot resume stage-02 \(design\)/);
+    assert.match(result.stderr, /stage-01 \(requirements\) is missing/);
+  });
+
+  it("prompt command emits a self-contained stage prompt", () => {
+    const result = run("prompt", ["requirements", "Add search"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Role: PM/);
+    assert.match(result.stdout, /Stage: stage-01 \(requirements\)/);
+    assert.match(result.stdout, /Feature: Add search/);
+    assert.match(result.stdout, /Role briefs:/);
+    assert.match(result.stdout, /\.claude\/agents\/pm\.md/);
+    assert.match(result.stdout, /Read first:/);
+    assert.match(result.stdout, /Allowed writes:/);
+    assert.match(result.stdout, /pipeline\/gates\/stage-01\.json/);
+    assert.match(result.stdout, /npm run validate/);
+  });
+
+  it("prompt command includes active track instructions", () => {
+    run("hotfix", ["Fix production checkout timeout"]);
+
+    const result = run("prompt", ["build"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: hotfix/);
+    assert.match(result.stdout, /Track instructions/);
+    assert.match(result.stdout, /blast-radius/);
+  });
+
+  it("prompt command warns for stages skipped by the active track", () => {
+    run("nano", ["Fix README typo"]);
+
+    const result = run("prompt", ["requirements"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Track: nano/);
+    assert.match(result.stdout, /Track warning: requirements is skipped by nano track/);
+  });
+
+  it("prompt command uses track-specific stage gate names", () => {
+    run("dep-update", ["Upgrade lodash to 4.17.21"]);
+
+    const result = run("prompt", ["peer-review"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Stage: stage-05-deps \(peer-review\)/);
+    assert.match(result.stdout, /Use the deps scoped review gate/);
+  });
+
+  it("prompt command rejects unknown stages", () => {
+    const result = run("prompt", ["mystery"]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown stage/);
+  });
+
+  it("role command prints role prompt briefs", () => {
+    const result = run("role", ["qa"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /QA Developer|QA Role/);
+    assert.match(result.stdout, /acceptance criterion|acceptance-criterion/);
+  });
+
+  it("role command rejects unknown roles", () => {
+    const result = run("role", ["mystery"]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown role/);
+  });
+
+  it("stage requirements scaffolds brief and draft gate", () => {
+    const result = run("stage", ["requirements"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "brief.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-01.json"), "utf8"));
+    assert.equal(gate.stage, "stage-01");
+    assert.equal(gate.required_sections_complete, false);
+  });
+
+  it("stage commands honor CLAUDE_TEAM_TRACK", () => {
+    const result = run("stage", ["requirements"], { CLAUDE_TEAM_TRACK: "quick" });
+
+    assert.equal(result.status, 0);
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-01.json"), "utf8"));
+    assert.equal(gate.track, "quick");
+  });
+
+  it("stage commands reject unsupported CLAUDE_TEAM_TRACK values", () => {
+    const result = run("stage", ["requirements"], { CLAUDE_TEAM_TRACK: "mystery" });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unsupported CLAUDE_TEAM_TRACK: mystery/);
+    assert.equal(fs.existsSync(path.join(target, "pipeline", "gates", "stage-01.json")), false);
+  });
+
+  it("stage design scaffolds design spec and draft gate", () => {
+    const result = run("stage", ["design"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "design-spec.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-02.json"), "utf8"));
+    assert.equal(gate.arch_approved, false);
+  });
+
+  it("stage clarification scaffolds clarification log and draft gate", () => {
+    const result = run("stage", ["clarification"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "clarification-log.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-03.json"), "utf8"));
+    assert.equal(gate.open_questions_count, 0);
+  });
+
+  it("stage build scaffolds build plan and draft gate", () => {
+    const result = run("stage", ["build"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "build-plan.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04.json"), "utf8"));
+    assert.deepEqual(gate.workstreams, []);
+  });
+
+  it("stage pre-review scaffolds checks and draft gate", () => {
+    const result = run("stage", ["pre-review"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "pre-review.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-04a.json"), "utf8"));
+    assert.equal(gate.lint_passed, false);
+  });
+
+  it("stage peer-review scaffolds review notes and draft gate", () => {
+    const result = run("stage", ["peer-review"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "code-review", "by-backend.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-05-backend.json"), "utf8"));
+    assert.equal(gate.area, "backend");
+  });
+
+  it("stage qa scaffolds test report and draft gate", () => {
+    const result = run("stage", ["qa"]);
+
+    assert.equal(result.status, 0);
+    assert.ok(fs.existsSync(path.join(target, "pipeline", "test-report.md")));
+    const gate = JSON.parse(fs.readFileSync(path.join(target, "pipeline", "gates", "stage-06.json"), "utf8"));
+    assert.equal(gate.all_acceptance_criteria_met, false);
+  });
+
+  it("stage command rejects unknown stages", () => {
+    const result = run("stage", ["mystery"]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown stage/);
+  });
+
+  it("lessons command promotes retrospective lesson lines", () => {
+    fs.writeFileSync(path.join(target, "pipeline", "retrospective.md"), [
+      "# Retrospective",
+      "",
+      "LESSON: Always map acceptance criteria to tests before sign-off.",
+      "",
+    ].join("\n"));
+
+    const result = run("lessons", ["promote"]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Promoted 1 lesson/);
+    assert.match(
+      fs.readFileSync(path.join(target, "pipeline", "lessons-learned.md"), "utf8"),
+      /Always map acceptance criteria/,
+    );
+  });
+});

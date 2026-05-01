@@ -10,6 +10,7 @@ The orchestrator reads JSON, not prose. Gates are machine-readable.
   "stage": "string",
   "status": "PASS | FAIL | ESCALATE",
   "agent": "name of agent that wrote this",
+  "track": "full | quick | nano | config-only | dep-update | hotfix",
   "timestamp": "ISO 8601",
   "blockers": [],
   "warnings": []

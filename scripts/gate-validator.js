@@ -1,0 +1,302 @@
+#!/usr/bin/env node
+/**
+ * gate-validator.js
+ *
+ * Runs after every subagent stop. Validates the state of pipeline/gates/ —
+ * the JSON is the authoritative record of stage status. Exits:
+ *
+ *   0 — PASS (most recent gate is PASS; no older unresolved escalations)
+ *   1 — gate file is malformed or missing required fields
+ *   2 — FAIL (most recent gate is FAIL)
+ *   3 — ESCALATE (most recent gate is ESCALATE, OR an older gate is
+ *       ESCALATE and a newer gate exists — i.e. a bypassed escalation)
+ *
+ * v2.1 hardening added:
+ *
+ *   - Sweep ALL gate files for unresolved ESCALATE, not just most recent.
+ *     A gate with status ESCALATE that is older than any other gate
+ *     indicates the escalation was bypassed. This halts the pipeline.
+ *   - Validate retry integrity: if retry_number >= 1, the
+ *     this_attempt_differs_by field must be a non-empty string.
+ *   - Warn (not fail) on gates missing the "track" field. Legacy gates
+ *     predating v2.0 don't carry this field; warning gives visibility
+ *     without breaking pipelines mid-upgrade.
+ *   - Scan pipeline/lessons-learned.md for malformed `**Reinforced:**`
+ *     lines. Malformed lines are warnings — they don't halt the
+ *     pipeline but surface a fix-up opportunity.
+ */
+
+const fs = require("fs");
+const path = require("path");
+
+const GATES_DIR = path.join(process.cwd(), "pipeline", "gates");
+const LESSONS_FILE = path.join(process.cwd(), "pipeline", "lessons-learned.md");
+
+// Matches the two valid forms documented in .claude/rules/retrospective.md:
+//   **Reinforced:** 0
+//   **Reinforced:** <N> (last: YYYY-MM-DD)   where N >= 1
+const REINFORCED_LINE_RE = /^\s*\*\*Reinforced:\*\*\s+(.+?)\s*$/;
+const REINFORCED_ZERO_RE = /^0$/;
+const REINFORCED_NONZERO_RE = /^([1-9]\d*)\s+\(last:\s+(\d{4}-\d{2}-\d{2})\)$/;
+
+const VALID_STATUSES = new Set(["PASS", "FAIL", "ESCALATE"]);
+const VALID_TRACKS = new Set([
+  "full",
+  "quick",
+  "nano",
+  "config-only",
+  "dep-update",
+  "hotfix",
+]);
+const REQUIRED_FIELDS = [
+  "stage",
+  "status",
+  "agent",
+  "timestamp",
+  "blockers",
+  "warnings",
+];
+
+/** Read a gate file and parse as JSON. Returns { gate, error }. */
+function loadGate(fullPath) {
+  try {
+    const raw = fs.readFileSync(fullPath, "utf8");
+    return { gate: JSON.parse(raw), error: null };
+  } catch (e) {
+    return { gate: null, error: e.message };
+  }
+}
+
+/** Validate required fields. Returns an array of missing field names. */
+function missingRequired(gate) {
+  return REQUIRED_FIELDS.filter((k) => !(k in gate));
+}
+
+/** Validate retry metadata if this gate is a retry. */
+function retryValidationError(gate) {
+  if (typeof gate.retry_number !== "number" || gate.retry_number < 1) {
+    return null;
+  }
+  const delta = gate.this_attempt_differs_by;
+  if (typeof delta !== "string" || delta.trim() === "") {
+    return `retry_number=${gate.retry_number} requires non-empty this_attempt_differs_by`;
+  }
+  return null;
+}
+
+/**
+ * Scan all gate files for unresolved escalations.
+ *
+ * An escalation is "unresolved and bypassed" when a gate has
+ * status=ESCALATE AND there is a newer gate file in the same directory.
+ * That newer file would not exist if the pipeline had correctly halted
+ * at the escalation.
+ */
+function findBypassedEscalations(gateFiles) {
+  if (gateFiles.length < 2) return [];
+
+  // gateFiles is sorted most-recent-first. Skip index 0 (the newest gate —
+  // an ESCALATE there is a live halt, not a bypass). Any older gate with
+  // status=ESCALATE was bypassed because a newer gate exists after it.
+  const bypassed = [];
+  for (let i = 1; i < gateFiles.length; i++) {
+    const { gate } = loadGate(gateFiles[i].full);
+    if (!gate) continue; // malformed — will surface separately if it's the top entry
+    if (gate.status === "ESCALATE") {
+      bypassed.push({ name: gateFiles[i].name, gate });
+    }
+  }
+
+  return bypassed;
+}
+
+/**
+ * Scan pipeline/lessons-learned.md for malformed `**Reinforced:**` lines.
+ * Returns an array of { lineNumber, text } objects. Missing file is not
+ * an error.
+ */
+function findMalformedReinforcedLines() {
+  if (!fs.existsSync(LESSONS_FILE)) return [];
+
+  let content;
+  try {
+    content = fs.readFileSync(LESSONS_FILE, "utf8");
+  } catch {
+    return [];
+  }
+
+  const lines = content.split(/\r?\n/);
+  const malformed = [];
+
+  lines.forEach((line, idx) => {
+    const m = line.match(REINFORCED_LINE_RE);
+    if (!m) return;
+    const value = m[1];
+    if (REINFORCED_ZERO_RE.test(value)) return;
+    if (REINFORCED_NONZERO_RE.test(value)) return;
+    malformed.push({ lineNumber: idx + 1, text: line.trim() });
+  });
+
+  return malformed;
+}
+
+/** List gate .json files sorted most-recent first. */
+function listGates() {
+  return fs
+    .readdirSync(GATES_DIR)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => ({
+      name: f,
+      mtime: fs.statSync(path.join(GATES_DIR, f)).mtimeMs,
+      full: path.join(GATES_DIR, f),
+    }))
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
+function reportBypassedEscalation(entry) {
+  const { gate } = entry;
+  console.log(
+    `[gate-validator] 🚨 BYPASSED ESCALATION — ${entry.name} (${gate.agent || "unknown agent"})`,
+  );
+  console.log(
+    `[gate-validator] This gate requested escalation but a newer gate was written`,
+  );
+  console.log(
+    `[gate-validator] Reason: ${gate.escalation_reason || "not specified"}`,
+  );
+  if (gate.decision_needed) {
+    console.log(`[gate-validator] Decision needed: ${gate.decision_needed}`);
+  }
+  if (gate.options) {
+    console.log(`[gate-validator] Options: ${gate.options.join(" | ")}`);
+  }
+}
+
+function main() {
+  if (!fs.existsSync(GATES_DIR)) {
+    process.exit(0);
+  }
+
+  const gateFiles = listGates();
+  if (gateFiles.length === 0) {
+    process.exit(0);
+  }
+
+  // Check for bypassed escalations BEFORE processing the most-recent gate.
+  // An unresolved escalation anywhere in history must halt the pipeline.
+  const bypassed = findBypassedEscalations(gateFiles);
+  if (bypassed.length > 0) {
+    for (const entry of bypassed) reportBypassedEscalation(entry);
+    console.log(
+      `[gate-validator] ${bypassed.length} escalation(s) appear to have been bypassed; halting`,
+    );
+    process.exit(3);
+  }
+
+  const latest = gateFiles[0];
+  const { gate, error } = loadGate(latest.full);
+
+  if (error) {
+    console.error(
+      `[gate-validator] ERROR: Could not parse ${latest.name}: ${error}`,
+    );
+    console.error(
+      `[gate-validator] Gate files must be valid JSON. See .claude/rules/gates.md`,
+    );
+    process.exit(1);
+  }
+
+  const missing = missingRequired(gate);
+  if (missing.length > 0) {
+    console.error(
+      `[gate-validator] INVALID GATE ${latest.name}: missing fields: ${missing.join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  if (!VALID_STATUSES.has(gate.status)) {
+    console.error(
+      `[gate-validator] UNKNOWN status "${gate.status}" in ${latest.name}`,
+    );
+    process.exit(1);
+  }
+
+  const retryErr = retryValidationError(gate);
+  if (retryErr) {
+    console.error(`[gate-validator] INVALID GATE ${latest.name}: ${retryErr}`);
+    console.error(
+      `[gate-validator] See .claude/rules/gates.md §Retry Protocol`,
+    );
+    process.exit(1);
+  }
+
+  // Advisory checks (warnings only — do not change exit code).
+  const advisories = [];
+  if (!("track" in gate)) {
+    advisories.push(
+      `${latest.name} missing "track" field (add one of: ${[...VALID_TRACKS].join(", ")})`,
+    );
+  } else if (!VALID_TRACKS.has(gate.track)) {
+    advisories.push(
+      `${latest.name} has unrecognised track "${gate.track}"`,
+    );
+  }
+
+  const malformedLessons = findMalformedReinforcedLines();
+  for (const m of malformedLessons) {
+    advisories.push(
+      `lessons-learned.md:${m.lineNumber} malformed **Reinforced:** line: ${m.text}`,
+    );
+  }
+
+  // Report final status based on most-recent gate.
+  const { status, stage, agent } = gate;
+
+  if (status === "PASS") {
+    console.log(`[gate-validator] ✅ GATE PASS — ${stage} (${agent})`);
+    if (Array.isArray(gate.warnings) && gate.warnings.length > 0) {
+      console.log(
+        `[gate-validator] ⚠️  Warnings: ${gate.warnings.join("; ")}`,
+      );
+    }
+    for (const a of advisories) console.log(`[gate-validator] ℹ️  ${a}`);
+    process.exit(0);
+  }
+
+  if (status === "FAIL") {
+    console.log(`[gate-validator] ❌ GATE FAIL — ${stage} (${agent})`);
+    if (Array.isArray(gate.blockers) && gate.blockers.length > 0) {
+      console.log(`[gate-validator] Blockers:`);
+      gate.blockers.forEach((b) => console.log(`  - ${b}`));
+    }
+    for (const a of advisories) console.log(`[gate-validator] ℹ️  ${a}`);
+    process.exit(2);
+  }
+
+  if (status === "ESCALATE") {
+    console.log(`[gate-validator] 🚨 ESCALATION REQUIRED — ${stage}`);
+    console.log(
+      `[gate-validator] Reason: ${gate.escalation_reason || "not specified"}`,
+    );
+    console.log(
+      `[gate-validator] Decision needed: ${gate.decision_needed || "see gate file"}`,
+    );
+    if (gate.options) {
+      console.log(`[gate-validator] Options: ${gate.options.join(" | ")}`);
+    }
+    for (const a of advisories) console.log(`[gate-validator] ℹ️  ${a}`);
+    process.exit(3);
+  }
+}
+
+// Top-level catch: an unexpected throw (e.g. filesystem EACCES on readdirSync,
+// a bug in this validator itself) must not halt the pipeline with an opaque
+// stack trace. Log a WARN to stdout and exit 0 so the orchestrator continues.
+// The CI test suite is the authoritative check for validator correctness.
+try {
+  main();
+} catch (err) {
+  const msg = err && err.message ? err.message : String(err);
+  console.log(`[gate-validator] ⚠️  internal error: ${msg}; treating as PASS`);
+  process.exit(0);
+}

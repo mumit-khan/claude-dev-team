@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/claude-dev-team/stage-04a.schema.json",
+  "title": "Stage 04a Pre-Review Gate",
+  "type": "object",
+  "required": [
+    "lint_passed",
+    "tests_passed",
+    "dependency_review_passed",
+    "security_review_required"
+  ],
+  "properties": {
+    "lint_passed": { "type": "boolean" },
+    "tests_passed": { "type": "boolean" },
+    "dependency_review_passed": { "type": "boolean" },
+    "security_review_required": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}
