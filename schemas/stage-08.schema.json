@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/claude-dev-team/stage-08.schema.json",
+  "title": "Stage 08 Deploy Gate",
+  "type": "object",
+  "required": [
+    "pm_signoff",
+    "deploy_requested",
+    "runbook_referenced"
+  ],
+  "properties": {
+    "pm_signoff": { "type": "boolean" },
+    "deploy_requested": { "type": "boolean" },
+    "runbook_referenced": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}
