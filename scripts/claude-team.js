@@ -479,7 +479,7 @@ function printRole(name) {
   // Try dev-<name>.md first, then <name>.md
   const devPath = path.join(agentsDir, `dev-${normalized}.md`);
   const directPath = path.join(agentsDir, `${normalized}.md`);
-  let rolePath = fs.existsSync(devPath) ? devPath : fs.existsSync(directPath) ? directPath : null;
+  const rolePath = fs.existsSync(devPath) ? devPath : fs.existsSync(directPath) ? directPath : null;
 
   if (!normalized || !rolePath) {
     console.error(`Unknown role: ${name || ""}`);

@@ -7,16 +7,8 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 const {
   main,
-  checkCommands,
-  checkRules,
-  checkSkills,
-  checkConfigKeys,
   checkStoplistContent,
-  checkAuditPhases,
   checkAgentPromptLines,
-  checkSchemas,
-  checkScripts,
-  checkTinyApp,
 } = require(path.join(ROOT, "scripts", "parity-check.js"));
 
 // ---------------------------------------------------------------------------
